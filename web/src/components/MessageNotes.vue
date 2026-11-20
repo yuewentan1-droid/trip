@@ -9,7 +9,8 @@ import Glyph from './Glyph.vue';
 const props = defineProps({
   list: { type: Array, default: () => [] },
   owner: Boolean,
-  erase: Boolean
+  erase: Boolean,
+  empty: { type: String, default: '' }
 });
 const emit = defineEmits(['erase', 'replied']);
 
@@ -79,7 +80,7 @@ async function reply(m) {
         </form>
       </Transition>
     </article>
-    <p v-if="!list.length" class="n-empty">篱笆上还空着，风吹过去只有叶子响。</p>
+    <p v-if="!list.length" class="n-empty">{{ empty || '篱笆上还空着，风吹过去只有叶子响。' }}</p>
   </div>
 </template>
 

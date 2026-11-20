@@ -59,6 +59,7 @@ async function load() {
   ready.value = false;
   fenced.value = false;
   knockState.value = '';
+  garden.value = null;
   readOpen.value = false;
   read.value = null;
   seen.clear();
@@ -73,6 +74,7 @@ async function load() {
   } catch (e) {
     fenced.value = true;
     knockState.value = e.data?.knock || '';
+    garden.value = e.data?.garden || null;
   } finally {
     ready.value = true;
   }
@@ -172,6 +174,10 @@ onMounted(() => {
 
     <template v-else-if="fenced">
       <div class="closed">
+        <div v-if="garden" class="closed-head">
+          <h1>{{ garden.garden_name }}</h1>
+          <p v-if="garden.bio">{{ garden.bio }}</p>
+        </div>
         <svg class="fence" viewBox="0 0 260 140" fill="none" aria-hidden="true">
           <g class="ink">
             <path class="post" pathLength="1" d="M40 24 C 38 59, 40.6 95, 39 129"/>
@@ -385,13 +391,15 @@ onMounted(() => {
 
 /* ——— 围起来的门 ——— */
 .closed { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 18px; padding-bottom: 8vh; }
+  gap: 18px; padding: 24px 24px 8vh; text-align: center; }
+.closed-head h1 { font-size: 32px; font-weight: 400; letter-spacing: 1px; color: #3D3229; line-height: 1.35; }
+.closed-head p { margin-top: 2px; font-size: 14px; letter-spacing: 1px; color: #8A7A66; }
 .fence { width: 260px; height: 140px; overflow: visible; }
 .fence .ink { filter: url(#boil-soft); }
 .fence path { stroke: #8B6B4A; stroke-width: 1.6; stroke-linecap: round; opacity: .72;
   animation: strokeIn 1.1s ease-out backwards; }
 .fence .tuft { stroke: #7E9A5F; opacity: .6; }
-.closed p { font-size: 14px; letter-spacing: 2px; color: #5C5044; }
+.closed > p { font-size: 14px; letter-spacing: 2px; color: #5C5044; }
 .fence-acts { display: flex; align-items: center; gap: 22px; }
 .knock-btn { display: inline-flex; align-items: center; gap: 5px; font-size: 13.5px; color: var(--grass-deep);
   letter-spacing: .08em; padding: 5px 15px 6px; border-radius: var(--r-c);

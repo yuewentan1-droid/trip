@@ -27,8 +27,13 @@ field.refresh();
 
 const inboxOpen = ref(false);
 const inboxTab = ref('notes');
+const inboxScope = ref('in');
 const profileOpen = ref(false);
-const openInbox = tab => { inboxTab.value = tab; inboxOpen.value = true; };
+const openInbox = (tab, scope = 'in') => {
+  inboxTab.value = tab;
+  inboxScope.value = scope;
+  inboxOpen.value = true;
+};
 
 // 树开到花期，原野上才许落花；没开花就飘花瓣是假景
 const blooming = computed(() => field.sessions.length >= 16 || field.words > 3000);
@@ -280,10 +285,10 @@ onMounted(() => notice.load());
           <button class="avatar" title="改名字、换把钥匙" @click="profileOpen = true">
             {{ (user.user?.nickname || '田')[0] }}
           </button>
-          <button v-if="notice.messages" class="leaf-msg" :title="`篱笆上挂着 ${notice.messages} 句话`"
-            @click="openInbox('notes')">
+          <button v-if="notice.words" class="leaf-msg" :title="`篱笆上有 ${notice.words} 句话`"
+            @click="openInbox('notes', notice.messages ? 'in' : 'out')">
             <Glyph name="leaf" :size="18"/>
-            <b>{{ notice.messages }}</b>
+            <b>{{ notice.words }}</b>
           </button>
           <button v-if="notice.doors" class="door-msg" :title="`门外有 ${notice.doors} 处动静`"
             @click="openInbox('knocks')">
@@ -306,11 +311,24 @@ onMounted(() => notice.load());
 
       <SoulTree class="tree" :sessions="field.sessions" @open="openPlot"/>
       <Transition name="note">
-        <button v-if="notice.messages && notice.latest" class="drift-note" @click.stop="openInbox('notes')">
+        <button v-if="notice.drift" class="drift-note"
+          @click.stop="openInbox('notes', notice.drift.kind === 'in' ? 'in' : 'out')">
           <span class="paper-in">
-            <em><Glyph name="leaf" :size="13"/> 篱笆上飘来一句</em>
-            <span class="line"><b>{{ notice.latest.nickname }}</b>「{{ notice.latest.content }}」</span>
-            <span class="more">{{ notice.messages }} 句话 · 点开看看</span>
+            <em><Glyph :name="notice.drift.kind === 'reply' ? 'chat' : notice.drift.kind === 'sent' ? 'pen' : 'leaf'"
+              :size="13"/>
+              {{ notice.drift.kind === 'in' ? '篱笆上飘来一句'
+                : notice.drift.kind === 'reply' ? '篱笆那头回你了' : '你留在篱笆上的话' }}</em>
+            <span v-if="notice.drift.kind === 'reply'" class="line">
+              <b>{{ notice.drift.nickname }}</b> 在「{{ notice.drift.garden_name }}」回：{{ notice.drift.reply }}
+            </span>
+            <span v-else-if="notice.drift.kind === 'sent'" class="line">
+              <b>{{ notice.drift.garden_name }}</b>：{{ notice.drift.content }}
+            </span>
+            <span v-else class="line"><b>{{ notice.drift.nickname }}</b>「{{ notice.drift.content }}」</span>
+            <span class="more">
+              {{ notice.drift.kind === 'in' ? `${notice.messages} 句话 · 点开看看`
+                : notice.drift.kind === 'reply' ? '点开看看回音' : '等回音 · 点开看看' }}
+            </span>
           </span>
         </button>
       </Transition>
@@ -433,7 +451,7 @@ onMounted(() => notice.load());
 
     <Toss v-if="gust" :x="gust.x" :y="gust.y" @done="blown"/>
     <PenPanel v-if="showPen" @close="showPen = false"/>
-    <InboxFence :open="inboxOpen" :tab="inboxTab" @close="inboxOpen = false"/>
+    <InboxFence :open="inboxOpen" :tab="inboxTab" :scope="inboxScope" @close="inboxOpen = false"/>
     <ProfileFence :open="profileOpen" @close="profileOpen = false"/>
   </div>
 </template>

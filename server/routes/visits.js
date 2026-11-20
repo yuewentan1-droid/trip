@@ -33,18 +33,22 @@ async function knockState(id, uid) {
   return rows[0] ? rows[0].status : null;
 }
 
+const gardenCard = g => g && {
+  id: g.id, nickname: g.nickname, garden_name: titleOf(g), bio: g.bio, visibility: g.visibility
+};
+
 async function fenced(req, res, g) {
   const knock = g ? await knockState(g.id, req.uid) : null;
-  res.json({ code: 403, msg: '这块地围起来了', data: { knock } });
+  res.json({ code: 403, msg: '这块地围起来了', data: { knock, garden: gardenCard(g) } });
 }
 
-// 串门：敞着门的十块地，先按门口的脚印多少，再按篱笆外说过几句话
+// 串门：十块地一页，敞着门的进院，围着门的敲一敲
 r.get('/visits', async (req, res) => {
   const sort = ['recent', 'high'].includes(req.query.sort) ? req.query.sort : 'all';
   const page = Math.max(1, Number(req.query.page) || 1);
   const offset = (page - 1) * PAGE;
   const recent = sort === 'recent';
-  const where = `u.visibility='public'${recent ? ' AND EXISTS (SELECT 1 FROM messages m WHERE m.garden_user_id=u.id)' : ''}`;
+  const where = recent ? 'EXISTS (SELECT 1 FROM messages m WHERE m.garden_user_id=u.id)' : '1=1';
   const order = sort === 'high'
     ? 'top_level DESC, seed_count DESC, u.views DESC, u.id DESC'
     : recent
@@ -52,7 +56,7 @@ r.get('/visits', async (req, res) => {
       : 'u.views DESC, message_count DESC, COALESCE(u.published_at, u.created_at) DESC, u.id DESC';
 
   const [list] = await db.query(
-    `SELECT u.id, u.nickname, u.garden_name, u.bio, u.published_at,
+    `SELECT u.id, u.nickname, u.garden_name, u.bio, u.visibility, u.published_at,
        (SELECT CAST(COUNT(*) AS SIGNED) FROM sessions s WHERE s.user_id=u.id) AS seed_count,
        (SELECT CAST(IFNULL(MAX(s.level), 0) AS SIGNED) FROM sessions s WHERE s.user_id=u.id) AS top_level,
        (SELECT MAX(m.created_at) FROM messages m WHERE m.garden_user_id=u.id) AS last_message_at,
@@ -64,12 +68,16 @@ r.get('/visits', async (req, res) => {
   const [[{ total }]] = await db.query(`SELECT CAST(COUNT(*) AS SIGNED) AS total FROM users u WHERE ${where}`);
 
   ok(res, {
-    list: list.map(u => ({
-      id: u.id, nickname: u.nickname, garden_name: titleOf(u), bio: u.bio,
-      seed_count: u.seed_count, top_level: u.top_level, message_count: u.message_count,
-      last_message_at: u.last_message_at,
-      latest_seed: u.latest_question || u.latest_title || ''
-    })),
+    list: list.map(u => {
+      const open = u.visibility === 'public';
+      return {
+        id: u.id, nickname: u.nickname, garden_name: titleOf(u), bio: u.bio,
+        visibility: u.visibility, fenced: !open,
+        seed_count: open ? u.seed_count : null, top_level: open ? u.top_level : null,
+        message_count: u.message_count, last_message_at: u.last_message_at,
+        latest_seed: open ? (u.latest_question || u.latest_title || '') : ''
+      };
+    }),
     total, page, limit: PAGE, sort
   });
 });
@@ -194,22 +202,60 @@ r.get('/messages/inbox', auth, async (req, res) => {
   ok(res, { list, total, page, limit: MSG });
 });
 
-// 头像旁边那一小撮：几句留言、几扇正在敲的门、几条已经开门的回音
-r.get('/notices', auth, async (req, res) => {
-  const [[{ messages }]] = await db.query(
-    'SELECT CAST(COUNT(*) AS SIGNED) AS messages FROM messages WHERE garden_user_id=?', [req.uid]);
-  const [[{ knocks }]] = await db.query(
-    "SELECT CAST(COUNT(*) AS SIGNED) AS knocks FROM knocks WHERE garden_user_id=? AND status='pending'", [req.uid]);
-  const [[{ approvals }]] = await db.query(
-    `SELECT CAST(COUNT(*) AS SIGNED) AS approvals FROM knocks
-     WHERE visitor_id=? AND status='approved' AND seen_by_visitor=0`, [req.uid]);
-  const [latest] = await db.query(
-    `SELECT m.content, u.nickname FROM messages m JOIN users u ON u.id=m.from_user_id
-     WHERE m.garden_user_id=? ORDER BY m.id DESC LIMIT 1`, [req.uid]);
-  ok(res, { messages, knocks, approvals, latest: latest[0] || null });
+// 我留在别人篱笆上的话：回音也一并带回来
+r.get('/messages/outbox', auth, async (req, res) => {
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const offset = (page - 1) * MSG;
+  const [list] = await db.query(
+    `SELECT m.id, m.garden_user_id, m.from_user_id, m.content, m.reply, m.replied_at, m.created_at,
+       u.nickname, u.garden_name
+     FROM messages m JOIN users u ON u.id=m.garden_user_id
+     WHERE m.from_user_id=? ORDER BY m.id DESC LIMIT ? OFFSET ?`, [req.uid, MSG, offset]);
+  const [[{ total }]] = await db.query(
+    'SELECT CAST(COUNT(*) AS SIGNED) AS total FROM messages WHERE from_user_id=?', [req.uid]);
+  ok(res, {
+    list: list.map(m => ({ ...m, garden_name: titleOf(m) })),
+    total, page, limit: MSG
+  });
 });
 
-// 敲门的人和被敲的门：主人看进来的，访客看已经开了的
+// 头像旁边那一小撮：自己篱笆上的话、留在别处的话和回音，还有门里门外的动静
+r.get('/notices', auth, async (req, res) => {
+  const [[box]] = await db.query(
+    `SELECT
+       (SELECT COUNT(*) FROM messages WHERE garden_user_id=?) AS messages,
+       (SELECT COUNT(*) FROM messages WHERE from_user_id=?) AS sent,
+       (SELECT COUNT(*) FROM messages WHERE from_user_id=? AND reply IS NOT NULL) AS replies,
+       (SELECT COUNT(*) FROM knocks WHERE garden_user_id=? AND status='pending') AS knocks,
+       (SELECT COUNT(*) FROM knocks WHERE visitor_id=? AND status='approved' AND seen_by_visitor=0) AS approvals`,
+    [req.uid, req.uid, req.uid, req.uid, req.uid]);
+  const [out] = await db.query(
+    `SELECT k.status FROM knocks k
+     WHERE k.visitor_id=? AND k.status IN ('pending','declined')
+       AND k.id=(SELECT MAX(k2.id) FROM knocks k2
+         WHERE k2.visitor_id=k.visitor_id AND k2.garden_user_id=k.garden_user_id)`, [req.uid]);
+  const waiting = out.filter(k => k.status === 'pending').length;
+  const declined = out.filter(k => k.status === 'declined').length;
+  const [latest] = await db.query(
+    `SELECT m.content, m.created_at, u.nickname FROM messages m JOIN users u ON u.id=m.from_user_id
+     WHERE m.garden_user_id=? ORDER BY m.id DESC LIMIT 1`, [req.uid]);
+  const [latestReply] = await db.query(
+    `SELECT m.reply, m.replied_at, m.content, u.nickname, u.garden_name
+     FROM messages m JOIN users u ON u.id=m.garden_user_id
+     WHERE m.from_user_id=? AND m.reply IS NOT NULL ORDER BY m.replied_at DESC, m.id DESC LIMIT 1`, [req.uid]);
+  const [latestSent] = await db.query(
+    `SELECT m.content, m.reply, m.replied_at, m.created_at, u.nickname, u.garden_name
+     FROM messages m JOIN users u ON u.id=m.garden_user_id
+     WHERE m.from_user_id=? ORDER BY m.id DESC LIMIT 1`, [req.uid]);
+  ok(res, {
+    ...box, waiting, declined,
+    latest: latest[0] || null,
+    latest_reply: latestReply[0] ? { ...latestReply[0], garden_name: titleOf(latestReply[0]) } : null,
+    latest_sent: latestSent[0] ? { ...latestSent[0], garden_name: titleOf(latestSent[0]) } : null
+  });
+});
+
+// 敲门的人和被敲的门：主人看进来的，访客看自己敲过的和已经开了的
 r.get('/knocks', auth, async (req, res) => {
   const [incoming] = await db.query(
     `SELECT k.id, k.created_at, u.nickname, u.id AS visitor_id
@@ -221,7 +267,20 @@ r.get('/knocks', auth, async (req, res) => {
        (SELECT CAST(COUNT(*) AS SIGNED) FROM knock_plots kp WHERE kp.knock_id=k.id) AS plots
      FROM knocks k JOIN users u ON u.id=k.garden_user_id
      WHERE k.visitor_id=? AND k.status='approved' ORDER BY k.id DESC`, [req.uid]);
-  ok(res, { incoming, opened });
+  const [out] = await db.query(
+    `SELECT k.id, k.garden_user_id, k.status, k.created_at, u.nickname, u.garden_name
+     FROM knocks k JOIN users u ON u.id=k.garden_user_id
+     WHERE k.visitor_id=? AND k.status IN ('pending','declined')
+       AND k.id=(SELECT MAX(k2.id) FROM knocks k2
+         WHERE k2.visitor_id=k.visitor_id AND k2.garden_user_id=k.garden_user_id)
+     ORDER BY k.id DESC`, [req.uid]);
+  const shape = k => ({ ...k, garden_name: titleOf(k) });
+  ok(res, {
+    incoming,
+    opened: opened.map(shape),
+    waiting: out.filter(k => k.status === 'pending').map(shape),
+    declined: out.filter(k => k.status === 'declined').map(shape)
+  });
 });
 
 // 敲一扇围起来的门

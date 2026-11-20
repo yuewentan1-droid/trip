@@ -59,6 +59,7 @@ export const api = {
   replyMessage: (id, d) => http.put(`/messages/${id}/reply`, d, { silent: true }),
   delMessage: id => http.delete(`/messages/${id}`, { silent: true }),
   inbox: (page = 1) => http.get('/messages/inbox', { params: { page }, silent: true }),
+  outbox: (page = 1) => http.get('/messages/outbox', { params: { page }, silent: true }),
   notices: () => http.get('/notices', { silent: true }),
   knocks: () => http.get('/knocks', { silent: true }),
   knock: id => http.post(`/garden/${id}/knock`, {}, { silent: true }),

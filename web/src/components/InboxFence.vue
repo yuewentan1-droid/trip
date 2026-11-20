@@ -10,7 +10,11 @@ import MessageNotes from './MessageNotes.vue';
 import FieldPager from './FieldPager.vue';
 import Glyph from './Glyph.vue';
 
-const props = defineProps({ open: Boolean, tab: { type: String, default: 'notes' } });
+const props = defineProps({
+  open: Boolean,
+  tab: { type: String, default: 'notes' },
+  scope: { type: String, default: 'in' }
+});
 const emit = defineEmits(['close']);
 
 const router = useRouter();
@@ -18,29 +22,34 @@ const field = useField();
 const notice = useNotice();
 
 const tab = ref(props.tab);
+const noteScope = ref(props.scope);
 const notes = ref([]);
 const total = ref(0);
 const page = ref(1);
 const loading = ref(false);
 const incoming = ref([]);
 const opened = ref([]);
+const waiting = ref([]);
+const declined = ref([]);
 const deciding = ref(0);
 const picks = ref(new Set());
 const busy = ref(false);
 const PER = 4;
 const pages = computed(() => Math.max(1, Math.ceil(total.value / PER)));
-const doorCount = computed(() => incoming.value.length);
+const doorCount = computed(() => incoming.value.length + waiting.value.length + declined.value.length);
 const openedFresh = computed(() => opened.value.filter(k => !k.seen_by_visitor).length);
 
 const title = computed(() => tab.value === 'notes' ? '篱笆上的话' : '门外的动静');
 const note = computed(() => tab.value === 'notes'
-  ? '风把话吹到篱笆上，回一句，别让它凉了'
+  ? noteScope.value === 'out'
+    ? '你留在别人篱笆上的话，回音也会落在这里'
+    : '风把话吹到篱笆上，回一句，别让它凉了'
   : '有人敲门，也有人给你留了门');
 
 async function loadNotes() {
   loading.value = true;
   try {
-    const d = await api.inbox(page.value);
+    const d = noteScope.value === 'out' ? await api.outbox(page.value) : await api.inbox(page.value);
     notes.value = d.list;
     total.value = d.total;
   } finally {
@@ -55,6 +64,8 @@ async function loadKnocks() {
     const d = await api.knocks();
     incoming.value = d.incoming;
     opened.value = d.opened;
+    waiting.value = d.waiting;
+    declined.value = d.declined;
     const fresh = d.opened.filter(k => !k.seen_by_visitor);
     if (fresh.length) {
       await Promise.all(fresh.map(k => api.seenKnock(k.id)));
@@ -74,6 +85,7 @@ function loadTab() {
 watch(() => props.open, on => {
   if (!on) return;
   tab.value = props.tab || 'notes';
+  noteScope.value = props.scope || 'in';
   page.value = 1;
   loadTab();
 });
@@ -82,18 +94,42 @@ watch(() => props.tab, t => {
   tab.value = t;
   loadTab();
 });
+watch(() => props.scope, s => {
+  if (!props.open || tab.value !== 'notes') return;
+  noteScope.value = s || 'in';
+  page.value = 1;
+  loadNotes();
+});
 watch(tab, () => {
   if (!props.open) return;
   page.value = 1;
   loadTab();
 });
 
+function setScope(scope) {
+  if (scope === noteScope.value) return;
+  noteScope.value = scope;
+  page.value = 1;
+  loadNotes();
+}
 function goPage(p) {
   page.value = p;
   loadNotes();
 }
+async function erase(m) {
+  await api.delMessage(m.id);
+  await loadNotes();
+  if (!notes.value.length && page.value > 1) {
+    page.value--;
+    await loadNotes();
+  }
+}
 function replied() {
   notice.load();
+}
+function openGarden(k) {
+  emit('close');
+  router.push('/garden/' + k.garden_user_id);
 }
 
 function begin(k) {
@@ -144,7 +180,17 @@ async function enter(k) {
     </nav>
 
     <template v-if="tab === 'notes'">
-      <MessageNotes :list="notes" owner @replied="replied"/>
+      <nav class="f-scope" aria-label="留言的方向">
+        <button :class="{ on: noteScope === 'in' }" @click="setScope('in')">
+          收到的 <i v-if="notice.messages">{{ notice.messages }}</i>
+        </button>
+        <button :class="{ on: noteScope === 'out' }" @click="setScope('out')">
+          我留的 <i v-if="notice.sent">{{ notice.sent }}</i>
+        </button>
+      </nav>
+      <MessageNotes :list="notes" :owner="noteScope === 'in'" :erase="noteScope === 'out'"
+        :empty="noteScope === 'out' ? '你还没在别人篱笆上留过话。' : ''"
+        @erase="erase" @replied="replied"/>
       <FieldPager v-if="pages > 1" :page="page" :pages="pages" @go="goPage"/>
     </template>
 
@@ -198,7 +244,27 @@ async function enter(k) {
         </article>
       </section>
 
-      <p v-if="!loading && !incoming.length && !opened.length" class="f-empty">
+      <section v-if="waiting.length || declined.length" class="knock-block">
+        <h4><Glyph name="home" :size="14"/> 你敲过的门</h4>
+        <article v-for="k in waiting" :key="k.id" class="knock-row">
+          <span class="k-face">{{ (k.nickname || '田')[0] }}</span>
+          <div class="k-say">
+            <b>{{ k.nickname }}</b> 的门还关着
+            <span>{{ k.garden_name || '他的田' }} · 等主人来看看</span>
+          </div>
+          <button class="k-open" @click="openGarden(k)">去门口</button>
+        </article>
+        <article v-for="k in declined" :key="k.id" class="knock-row">
+          <span class="k-face">{{ (k.nickname || '田')[0] }}</span>
+          <div class="k-say">
+            <b>{{ k.nickname }}</b> 这回没开
+            <span>{{ k.garden_name || '他的田' }}</span>
+          </div>
+          <button class="k-open" @click="openGarden(k)">再敲一次</button>
+        </article>
+      </section>
+
+      <p v-if="!loading && !incoming.length && !opened.length && !waiting.length && !declined.length" class="f-empty">
         门外还没有动静。风过来的时候，篱笆会先知道。
       </p>
     </template>
@@ -212,6 +278,12 @@ async function enter(k) {
 .f-tabs button.on { color: var(--wood); text-decoration: underline wavy rgba(139, 107, 74, .6) 1px;
   text-underline-offset: 6px; }
 .f-tabs i { font-style: normal; font-size: 11px; color: var(--grass-deep); }
+.f-scope { display: flex; justify-content: center; gap: 22px; padding: 0 0 12px; }
+.f-scope button { font-size: 12px; color: var(--ink-faint); letter-spacing: .06em;
+  padding: 0 1px 3px; transition: color .3s; }
+.f-scope button.on { color: var(--wood); text-decoration: underline wavy rgba(139, 107, 74, .55) 1px;
+  text-underline-offset: 5px; }
+.f-scope i { font-style: normal; font-size: 10.5px; color: var(--grass-deep); }
 .f-loading, .f-empty { text-align: center; font-size: 13px; color: var(--ink-faint); letter-spacing: .06em;
   padding: 24px 0; }
 .knock-block { margin-bottom: 18px; }

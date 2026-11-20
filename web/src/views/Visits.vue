@@ -60,7 +60,7 @@ onMounted(() => load(1));
       </button>
       <div class="v-inner">
         <h1>串门</h1>
-        <p class="v-sub">—— 别人敞着门的那几块地</p>
+        <p class="v-sub">—— 别人的几块地，敞着就进，围着就敲</p>
         <nav class="filters" aria-label="挑选门牌">
           <button v-for="f in FILTERS" :key="f.key" :class="{ on: sort === f.key }"
             :aria-pressed="sort === f.key" @click="pick(f.key)">{{ f.label }}</button>
@@ -87,8 +87,8 @@ onMounted(() => load(1));
                 <path class="tuft" pathLength="1" d="M88 66 C 87 61, 86.4 58.4, 85 55.6 M92 66 C 92.2 61, 93 58.6, 94.6 56 M96 66 C 97 62.2, 98.8 60.2, 101 58.4"/>
               </g>
             </svg>
-            <p>现在还没有人敞着门。</p>
-            <p class="soft">不着急，地是自己的，<br>什么时候想让人看看了，<br>再去我的田地里把篱笆拆了。</p>
+            <p>现在还没有别人的地。</p>
+            <p class="soft">不着急，先把自家这块地<br>种出一点样子，<br>风会把人带过来的。</p>
             <router-link class="to-mine" to="/mine">回到我的地</router-link>
           </div>
           <p v-else class="empty-one">这一栏还空着。</p>
@@ -103,9 +103,14 @@ onMounted(() => load(1));
               </svg>
               <span class="avatar">{{ (g.nickname || '田')[0] }}</span>
               <h2>{{ g.garden_name }}</h2>
-              <p class="stat">种了 {{ g.seed_count }} 粒，长到第 {{ g.top_level }} 层</p>
+              <p v-if="g.fenced" class="stat closed"><Glyph name="home" :size="12"/> 门关着，敲一敲</p>
+              <p v-else class="stat">种了 {{ g.seed_count }} 粒，长到第 {{ g.top_level }} 层</p>
               <p v-if="g.latest_seed" class="seed">“{{ g.latest_seed }}”</p>
-              <div class="silhouette"><i/><TreeMark :count="g.seed_count" :level="g.top_level"/><i/></div>
+              <div v-if="g.fenced" class="closed-mark">
+                <Glyph name="home" :size="29"/>
+                <span>篱笆围着，主页还看得见</span>
+              </div>
+              <div v-else class="silhouette"><i/><TreeMark :count="g.seed_count" :level="g.top_level"/><i/></div>
               <p class="talk">
                 <Glyph name="leaf" :size="12"/>
                 {{ g.message_count ? `篱笆上 ${g.message_count} 句话` : '篱笆上还静着' }}
@@ -196,8 +201,12 @@ main { flex: 1; min-height: 0; }
 .visit-card:hover .avatar { border-color: #8B6F47; animation: nod .2s ease-in-out; }
 h2 { margin-top: 12px; font-size: 17px; font-weight: 400; letter-spacing: 1px; color: #3D3229; }
 .stat { margin-top: 1px; font-size: 12px; letter-spacing: 1.5px; color: #8A7A66; }
+.stat.closed { display: inline-flex; align-items: center; gap: 4px; color: #A89880; }
 .seed { margin-top: 16px; font-size: 14px; line-height: 1.7; letter-spacing: 1px; color: #5C5044; }
 .silhouette { display: flex; align-items: center; gap: 10px; margin-top: 16px; height: 48px; }
+.closed-mark { display: flex; align-items: center; justify-content: center; gap: 7px; height: 48px;
+  margin-top: 16px; color: #A89880; font-size: 11px; letter-spacing: .06em; }
+.closed-mark :deep(svg) { opacity: .65; }
 .silhouette i { display: block; width: 30px; height: 1px; background: rgba(150, 133, 100, .45); }
 .silhouette i:last-child { flex: 1; max-width: 54px; }
 .talk { display: flex; align-items: center; gap: 4px; margin-top: 9px; font-size: 12px;
