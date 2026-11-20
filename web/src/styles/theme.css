@@ -1,0 +1,345 @@
+:root {
+  /* 手工纸 + 陈年墨。所有颜色都往“放久了”的方向调 */
+  --paper: #FAF6EC;
+  --paper-2: #F1EAD8;
+  --card: #FFFDF4;
+  --ink: #3F3A2F;
+  --ink-soft: #867C69;
+  --ink-faint: #A79C85;
+  --graphite: #5A5340;
+
+  --grass: #7E9A5F;
+  --grass-deep: #4F6B3A;
+  --wheat: #C9A24B;
+  --dry: #B89B5E;
+  --wood: #8B6B4A;
+  --clay: #B07A55;
+  --sky: #7E9FAE;
+  --lilac: #8C7C94;
+  --sakura: #C09384;
+
+  --line: #D6CBB2;
+  --shadow: 0 3px 16px rgba(94, 83, 64, .07);
+
+  /* 篱笆木与陶土红：陶土红一整页只许点一处 */
+  --fence: #C9B99A;
+  --ember: #B85C38;
+
+  /* 纸就是平的：只留一层极轻的影，不做凹凸，不做浮雕 */
+  --emboss: 0 1px 3px rgba(94, 83, 64, .04);
+  --emboss-soft: none;
+  --emboss-lift: 0 4px 14px rgba(94, 83, 64, .08);
+  --pressed: none;
+
+  /* 圆角必须大小错落，绝不出现纯直角和等宽胶囊 */
+  --r-a: 22px 13px 26px 11px / 13px 24px 12px 26px;
+  --r-b: 13px 24px 11px 22px / 24px 12px 26px 13px;
+  --r-c: 30px 9px 20px 14px / 11px 26px 12px 22px;
+  --r-soft: 18px 26px 15px 24px / 24px 15px 26px 17px;
+
+  --font-main: "LXGW WenKai", "Kaiti SC", "STKaiti", "KaiTi", serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+/* 一整页就是一张摊开的纸：不滚，长内容自己在框里滚，滚条藏起来 */
+html, body, #app { height: 100vh; overflow: hidden; }
+body {
+  font-family: var(--font-main);
+  color: var(--ink);
+  background: var(--paper);
+  line-height: 1.8;
+  letter-spacing: .02em;
+  -webkit-font-smoothing: antialiased;
+}
+/* 纸的纤维 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+}
+/* 纸放久了的四角会暗一点 */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(120% 100% at 50% 45%, transparent 52%, rgba(120, 100, 62, .07) 100%);
+}
+
+/* 能滚但不露滚条 */
+.roll { overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.roll::-webkit-scrollbar { display: none; }
+
+a { color: inherit; text-decoration: none; }
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  letter-spacing: inherit;
+}
+input, textarea {
+  font: inherit;
+  font-family: var(--pen-fam, var(--font-main));
+  font-weight: var(--pen-w, 400);
+  letter-spacing: var(--pen-sp, .02em);
+  color: var(--pen-ink, var(--ink));
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px dashed var(--line);
+  padding: 6px 4px 5px;
+  width: 100%;
+  transition: border-color .4s;
+}
+input:focus, textarea:focus { outline: none; border-bottom-color: var(--grass); }
+textarea { resize: none; }
+::selection { background: rgba(126, 154, 95, .25); }
+
+/* ——— 墨晕底 ——— */
+.card {
+  position: relative;
+  background:
+    radial-gradient(115% 85% at 16% 10%, rgba(94, 83, 64, .045), transparent 58%),
+    radial-gradient(105% 80% at 84% 90%, rgba(94, 83, 64, .035), transparent 60%),
+    var(--card);
+  border: none;
+  border-radius: var(--r-a);
+  box-shadow: var(--emboss);
+}
+/* 弹窗内容超高时，滚条也磨成纸边的样子 */
+.modal::-webkit-scrollbar { display: none; }
+
+/* 需要“边”的时候，一律歪虚线，不给实线 */
+.edge { position: relative; }
+.edge::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border: 1.4px dashed rgba(150, 133, 100, .5);
+  border-radius: inherit;
+  pointer-events: none;
+  filter: url(#ink-blot);
+}
+/* 不是卡片、又想要那点手上凹凸的，直接挂这一条 */
+.emboss { box-shadow: var(--emboss); }
+.emboss-soft { box-shadow: var(--emboss-soft); }
+.card-lift { transition: transform .5s cubic-bezier(.22, .8, .26, 1), box-shadow .5s; }
+.card-lift:hover { transform: translateY(-4px) rotate(-.35deg); box-shadow: var(--emboss-lift); }
+
+/* ——— 按钮：像拿印章随手盖的，不做胶囊 ——— */
+.btn {
+  display: inline-block;
+  background: rgba(79, 107, 58, .12);
+  color: var(--grass-deep);
+  border-radius: var(--r-b);
+  padding: 8px 22px 9px;
+  box-shadow: inset 0 0 0 1.4px rgba(79, 107, 58, .38);
+  transition: background .4s, transform .4s;
+}
+.btn:hover { background: rgba(79, 107, 58, .2); transform: rotate(-.7deg) translateY(-1px); }
+.btn:active { transform: translateY(1px) rotate(0deg);
+  box-shadow: inset 0 0 0 1.4px rgba(79, 107, 58, .42), var(--pressed); }
+.btn:disabled { opacity: .45; cursor: default; box-shadow: none; }
+.btn-ghost {
+  display: inline-block;
+  border-radius: var(--r-c);
+  padding: 7px 18px 8px;
+  box-shadow: inset 0 0 0 1.3px rgba(139, 107, 74, .34);
+  color: var(--wood);
+  transition: box-shadow .4s, background .4s;
+}
+.btn-ghost:hover { background: rgba(139, 107, 74, .09); box-shadow: inset 0 0 0 1.4px rgba(139, 107, 74, .55); }
+.btn-ghost:active { transform: translateY(1px);
+  box-shadow: inset 0 0 0 1.3px rgba(139, 107, 74, .4), var(--pressed); }
+.btn-ghost:disabled { opacity: .45; cursor: default; }
+
+/* 维度小叶签 */
+.leaf {
+  display: inline-block;
+  color: var(--ink);
+  font-size: 12.5px;
+  line-height: 1.6;
+  padding: 0 10px 1px 8px;
+  border-radius: 3px 14px 4px 12px / 12px 4px 14px 5px;
+  flex: none;
+}
+.leaf.ink { color: var(--paper); }
+
+.mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(63, 58, 47, .32);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+.modal {
+  position: relative;
+  width: min(480px, 92vw);
+  max-height: 82vh;
+  overflow: auto;
+  scrollbar-width: none;
+  background: var(--paper);
+  border-radius: var(--r-soft);
+  /* 自己就是张裁下来的纸：边直接描在纸上，因为 overflow:auto 会把 ::after 裁掉 */
+  border: 1.5px dashed rgba(150, 133, 100, .55);
+  box-shadow: 0 14px 34px rgba(63, 58, 47, .14);
+  padding: 24px 28px 22px;
+  transform: rotate(-.4deg);
+}
+.modal h3 { margin-bottom: 16px; font-weight: normal; letter-spacing: .04em; }
+.modal .f-item { margin-bottom: 14px; }
+.modal .f-item label { display: block; font-size: 13px; color: var(--ink-soft); margin-bottom: 3px; }
+.m-acts { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+
+.top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 30px 12px;
+  position: relative;
+  z-index: 10;
+}
+.top-nav .logo { font-size: 19px; display: flex; align-items: center; gap: 8px; }
+.top-nav nav { display: flex; align-items: center; gap: 16px; }
+.top-nav .link { color: var(--ink-soft); font-size: 14px; transition: color .3s; }
+.top-nav .link:hover { color: var(--wood); }
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 29px;
+  height: 31px;
+  border-radius: 46% 54% 50% 50% / 54% 46% 52% 48%;
+  background: rgba(79, 107, 58, .16);
+  color: var(--grass-deep);
+  font-size: 14px;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 44px;
+  transform: translate(-50%, 12px) rotate(-.9deg);
+  opacity: 0;
+  background: var(--card);
+  color: var(--ink);
+  padding: 8px 20px 9px;
+  border: 1.3px dashed rgba(139, 107, 74, .45);
+  border-radius: var(--r-c);
+  box-shadow: 0 6px 16px rgba(94, 83, 64, .16);
+  font-size: 14px;
+  letter-spacing: .04em;
+  z-index: 99;
+  transition: opacity .45s, transform .45s;
+}
+.toast.on { opacity: 1; transform: translate(-50%, 0) rotate(-.9deg); }
+
+.loading { padding: 70px 0; text-align: center; color: var(--ink-faint); letter-spacing: 6px; }
+
+/* 手绘线一笔一笔长出来 */
+@keyframes strokeIn {
+  from { stroke-dasharray: 1; stroke-dashoffset: 1; visibility: hidden; }
+  1% { visibility: visible; }
+  to { stroke-dasharray: 1; stroke-dashoffset: 0; }
+}
+/* 墨滴入纸：先淡后定，纸上洇开一圈 */
+@keyframes inkIn {
+  from { opacity: 0; transform: translateY(-8px) scale(.97); }
+  60% { opacity: 1; }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ripple {
+  from { opacity: .5; transform: scale(.35); }
+  to { opacity: 0; transform: scale(1.6); }
+}
+@keyframes breathe {
+  0%, 100% { opacity: .045; }
+  50% { opacity: .085; }
+}
+@keyframes dashline { to { stroke-dashoffset: -60; } }
+@keyframes sprout {
+  from { transform: scale(.2) translateY(6px); opacity: 0; }
+  70% { transform: scale(1.06) translateY(-1px); opacity: 1; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes tipDown { from { transform: translateY(-100%); } to { transform: none; } }
+/* 麦秆：每根自己的幅度、自己的底倾角、先倒向哪边也各定各的，风才不像节拍器 */
+@keyframes sway { from { transform: rotate(calc(var(--lean) - var(--amp))); } to { transform: rotate(calc(var(--lean) + var(--amp))); } }
+/* 穗子比秆子慢一档，风过去的时候头总留在后头 */
+@keyframes nod { from { transform: rotate(calc(var(--amp) * .55)); } to { transform: rotate(calc(var(--amp) * -.55)); } }
+@keyframes drift { from { transform: translateX(-22vw); } to { transform: translateX(118vw); } }
+@keyframes fly {
+  0% { transform: translate(0, 0); opacity: 0; }
+  15% { opacity: .8; }
+  50% { transform: translate(46px, -70px); opacity: .3; }
+  80% { opacity: .65; }
+  100% { transform: translate(-28px, -140px); opacity: 0; }
+}
+@keyframes burst { from { transform: scale(.3); opacity: 1; } to { transform: scale(1.8) rotate(18deg); opacity: 0; } }
+@keyframes flipIn { from { transform: perspective(400px) rotateY(-70deg); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* 扬出去的一把叶子：先被风带起来，再自己坠下去 */
+@keyframes toss {
+  0% { transform: translate(0, 0) rotate(0); opacity: .85; }
+  45% { opacity: .7; }
+  100% { transform: translate(var(--dx), calc(var(--dy) + 86px)) rotate(var(--r)); opacity: 0; }
+}
+/* 花瓣落叶慢慢斜着飘过 */
+@keyframes petalFall {
+  0% { transform: translate(0, -16px) rotate(-10deg); opacity: 0; }
+  18% { opacity: var(--o); }
+  42% { transform: translate(calc(var(--w) * -.55), 34px) rotate(46deg); }
+  74% { transform: translate(calc(var(--w) * .5), 74px) rotate(128deg); opacity: var(--o); }
+  100% { transform: translate(var(--w), 116px) rotate(196deg); opacity: 0; }
+}
+/* 笔一动，风就大一点 */
+@keyframes gust { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(15px); } }
+
+/* ——— 十支笔：每支就是一组墨性变量，输入框和落墨的字都来这儿取 ——— */
+/* 褪色墨不取紫，取晒旧了的纸灰 */
+.p-xingkai, body[data-penzh="xingkai"] { --pen-fam: var(--font-main); --pen-w: 600; --pen-ink: #363127; --pen-sp: .03em; --pen-slant: 0deg; --pen-tex: none; }
+.p-shoujin, body[data-penzh="shoujin"] { --pen-fam: var(--font-main); --pen-w: 300; --pen-ink: #474136; --pen-sp: .09em; --pen-slant: 0deg; --pen-tex: none; }
+.p-kuangcao, body[data-penzh="kuangcao"] { --pen-fam: var(--font-main); --pen-w: 700; --pen-ink: #2E2A21; --pen-sp: .005em; --pen-slant: -7deg; --pen-tex: url(#ink-grain); }
+.p-tongqu, body[data-penzh="tongqu"] { --pen-fam: "YouYuan", "Yuanti SC", "Microsoft YaHei", sans-serif; --pen-w: 500; --pen-ink: #3F3A2F; --pen-sp: .08em; --pen-slant: 2deg; --pen-tex: none; }
+.p-tuimo, body[data-penzh="tuimo"] { --pen-fam: var(--font-main); --pen-w: 400; --pen-ink: #A79C85; --pen-sp: .04em; --pen-slant: 0deg; --pen-tex: url(#ink-grain); }
+.p-roundhand { --pen-fam: "Caveat", "Segoe Script", cursive; --pen-w: 500; --pen-ink: #3A352B; --pen-sp: .015em; --pen-slant: -3deg; --pen-tex: none; }
+.p-cursive { --pen-fam: "Dancing Script", "Segoe Script", cursive; --pen-w: 500; --pen-ink: #3A352B; --pen-sp: -.01em; --pen-slant: -8deg; --pen-tex: none; }
+.p-typewriter { --pen-fam: "Special Elite", "Courier New", monospace; --pen-w: 400; --pen-ink: #33302A; --pen-sp: .06em; --pen-slant: 0deg; --pen-tex: url(#ink-grain); }
+.p-pencil { --pen-fam: "Shadows Into Light", var(--font-main); --pen-w: 400; --pen-ink: #8B8272; --pen-sp: .04em; --pen-slant: 0deg; --pen-tex: url(#ink-grain); }
+.p-calligraphy { --pen-fam: "Great Vibes", "Brush Script MT", cursive; --pen-w: 400; --pen-ink: #363127; --pen-sp: .02em; --pen-slant: -5deg; --pen-tex: none; }
+
+/* ——— 沉积岩：存档压出来的一层，浅灰、边口糙，不投现代阴影 ——— */
+.rock {
+  position: relative;
+  background:
+    linear-gradient(178deg, rgba(122, 118, 106, .15), rgba(122, 118, 106, .05) 52%, rgba(122, 118, 106, .12)),
+    var(--paper-2);
+  border-radius: var(--r-a);
+}
+/* 糙边描在岩块外圈：位移滤镜只啃这条线，字还是清楚的 */
+.rock::before {
+  content: ''; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none;
+  border: 1.5px solid rgba(107, 100, 84, .5); filter: url(#ink-blot);
+}
+/* 岩面上那几道横向的层理 */
+.rock::after {
+  content: ''; position: absolute; left: 7%; right: 11%; top: 34%; height: 34%; pointer-events: none; opacity: .5;
+  background: repeating-linear-gradient(178deg, rgba(107, 100, 84, .3) 0 1.2px, transparent 1.2px 9px);
+  filter: url(#boil-soft);
+}
+/* 岩层之间那道手绘的横向波浪线 */
+.wavy { position: relative; height: 15px; margin: 2px 0; }
+.wavy svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.wavy path { fill: none; stroke: var(--graphite); stroke-width: 1.2; stroke-linecap: round; opacity: .38;
+  vector-effect: non-scaling-stroke; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition-duration: .01s !important; }
+}
