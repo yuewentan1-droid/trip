@@ -39,7 +39,7 @@
 
   --font-main: "LXGW WenKai", "Kaiti SC", "STKaiti", "KaiTi", serif;
 
-  /* 字号整档跟着窗口走：--ui-scale 由 store/scale.js 按视口换算，开关关掉时恒为 1 */
+  /* 字号整档跟着窗口走：--ui-scale 由 store/scale.js 按视口换算 */
   --ui-scale: 1;
   /* 字阶只留八档：越往下越安静，同一件事全站只用一个字号 */
   --fs-xs: calc(16px * var(--ui-scale));

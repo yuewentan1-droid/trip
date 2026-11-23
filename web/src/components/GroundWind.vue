@@ -184,7 +184,7 @@ const airStyle = (a, i) => ({
 .g-vine .g-root { stroke-width: 3; opacity: .5; }
 .ground-seed::before { content: ''; position: absolute; bottom: -3px; left: 50%; width: 30px; height: 7px;
   margin-left: -15px; border-radius: 50%; background: rgba(120, 96, 62, .2); z-index: -1; }
-/* 牌上的字比正文小三号：宽屏十七，窄屏十六，不跟着字号开关再放大 */
+/* 牌上的字比正文小三号：宽屏十七，窄屏十六，不跟着字号倍率再放大 */
 .seed-sign :deep(.board) { font-size: 17px; }
 .ground-seed .seed-sign { top: calc(100% + 2px); opacity: 0; visibility: hidden; translate: 0 3px;
   transition: opacity .35s, translate .35s, visibility .35s; }

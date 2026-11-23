@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
 
-const KEY = 'trip-ui-scale';
 const DESIGN_W = 1440;
 const MIN = .92;
 const MAX = 1;
@@ -12,7 +11,6 @@ let listening = false;
 // 字号整档跟着窗口走：大屏保持原样，窄屏和手机略收一点
 export const useScale = defineStore('scale', {
   state: () => ({
-    on: localStorage.getItem(KEY) === '1',
     factor: 1
   }),
   actions: {
@@ -29,12 +27,7 @@ export const useScale = defineStore('scale', {
       this.wear();
     },
     wear() {
-      document.documentElement.style.setProperty('--ui-scale', this.on ? String(this.factor) : '1');
-    },
-    toggle() {
-      this.on = !this.on;
-      localStorage.setItem(KEY, this.on ? '1' : '0');
-      this.wear();
+      document.documentElement.style.setProperty('--ui-scale', String(this.factor));
     }
   }
 });
