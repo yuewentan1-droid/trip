@@ -322,6 +322,14 @@ async function del(t) {
   field.patch(id, { level: session.value.level, thought_count: session.value.thought_count });
 }
 
+// 这一滴给不给外人看；封了地也还能改，只动这一滴
+async function toggleSecret(t) {
+  const visible = t.visible === 0 ? 1 : 0;
+  await api.setThoughtVisible(t.id, visible);
+  t.visible = visible;
+  toast(visible ? '放回院里了，路过的人看得见' : '收起来了，只有你看得见');
+}
+
 // 照片先递到 uploads，再把地址记在这滴上；传之前把公开的风险说清楚
 const IMG_MAX = 300 * 1024 * 1024;
 const agreeSowPhoto = () => ask({
@@ -449,7 +457,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', offGuide, true
 
           <ThoughtCard v-for="(t, i) in thoughts" :key="t.id" :t="t" :i="i" :frozen="finished"
             :fold="seedFold" :ref="el => bind(t.id, el)"
-            @edit="!finished && (edit = { ...t })" @del="del" @resize="measure"
+            @edit="!finished && (edit = { ...t })" @del="del" @secret="toggleSecret" @resize="measure"
             @view="photo = $event.img"/>
         </div>
         <VineScroll :el="stream"/>

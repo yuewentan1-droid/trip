@@ -14,8 +14,11 @@ const props = defineProps({
   list: { type: Array, default: () => [] },
   owner: Boolean,
   canReply: { type: Boolean, default: true },
+  readOnly: Boolean,
   erase: Boolean,
   rows: Boolean,
+  showText: Boolean,
+  showGarden: Boolean,
   empty: { type: String, default: '' }
 });
 const emit = defineEmits(['erase', 'replied']);
@@ -31,7 +34,7 @@ const sending = ref(false);
 const mine = m => m.from_user_id === user.user?.id;
 // 主人回自己的篱笆；留话的人回自己那句话。别人家的旧话只看不插嘴
 const canReplyTo = m => {
-  if (!user.isLogin) return false;
+  if (!user.isLogin || props.readOnly) return false;
   if (props.owner) return props.canReply;
   return m.from_user_id === user.user?.id;
 };
@@ -116,7 +119,7 @@ async function reply(m) {
 
   <div v-else class="notes">
     <article v-for="m in list" :key="m.id" class="note" :style="scatter(m)"
-      :aria-label="`${m.nickname} 的留言，摊开看`" @click="openNote = m">
+      :data-note="m.id" :aria-label="`${m.nickname} 的留言，摊开看`" @click="openNote = m">
       <header class="n-head">
         <span class="n-face">{{ (m.nickname || '田')[0] }}</span>
         <span class="n-name" :title="m.nickname">{{ m.nickname }}</span>
@@ -125,6 +128,8 @@ async function reply(m) {
           <Glyph name="leaf" :size="11"/> {{ m.replies.length }} 回
         </span>
       </header>
+      <p v-if="showText" class="n-text">{{ m.content }}</p>
+      <p v-if="showGarden && m.garden_name" class="n-where">留在 {{ m.garden_name }}</p>
       <div class="n-foot" @click.stop>
         <button class="n-open" @click="openNote = m">
           <Glyph name="expand" :size="12"/> 摊开
@@ -146,6 +151,7 @@ async function reply(m) {
             <span class="n-face">{{ (openNote.nickname || '田')[0] }}</span>
             <span class="n-name">{{ openNote.nickname }}</span>
             <span class="n-when">{{ said(openNote.created_at) }}</span>
+            <span v-if="showGarden && openNote.garden_name" class="n-when">· 留在 {{ openNote.garden_name }}</span>
           </header>
           <div class="nw-body-wrap">
             <div ref="nwBody" class="nw-body">
@@ -211,6 +217,11 @@ async function reply(m) {
 .n-when { flex: none; font-size: var(--fs-sm); color: var(--ink-faint); }
 .n-echo { display: inline-flex; align-items: center; gap: 2px; flex: none;
   font-size: var(--fs-sm); color: var(--grass-deep); letter-spacing: .03em; }
+/* 摊在墙上的纸条露个开头，想看全的再点开 */
+.n-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden;
+  margin-top: 8px; font-size: var(--fs-md); line-height: 1.8; letter-spacing: .02em;
+  color: var(--ink-soft); word-break: break-word; white-space: pre-wrap; }
+.n-where { margin-top: 5px; font-size: var(--fs-xs); letter-spacing: .04em; color: var(--ink-faint); }
 .n-foot { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 5px 10px;
   margin-top: 8px; padding-top: 7px; min-height: 20px; border-top: 1.1px dashed rgba(150, 133, 100, .3); }
 .n-open { display: inline-flex; align-items: center; gap: 2px; margin-right: auto; color: var(--ink-faint);

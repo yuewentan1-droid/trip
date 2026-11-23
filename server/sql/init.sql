@@ -54,6 +54,8 @@ CREATE TABLE IF NOT EXISTS thoughts (
   content VARCHAR(500) NOT NULL,
   img VARCHAR(200) DEFAULT '',
   level INT DEFAULT 1,
+  -- 这一滴给不给外人看；收起来的，连叶子也不在别人院里露面
+  visible TINYINT NOT NULL DEFAULT 1,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   KEY idx_thoughts_session (session_id)
 );
@@ -73,7 +75,7 @@ CREATE TABLE IF NOT EXISTS messages (
   id INT PRIMARY KEY AUTO_INCREMENT,
   garden_user_id INT NOT NULL,
   from_user_id INT NOT NULL,
-  content VARCHAR(200) NOT NULL,
+  content VARCHAR(300) NOT NULL,
   reply VARCHAR(200) DEFAULT NULL,
   replied_at DATETIME DEFAULT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

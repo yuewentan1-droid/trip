@@ -1,11 +1,13 @@
 const r = require('express').Router();
 const db = require('../db');
 const { auth, maybe } = require('../auth');
+const { WALL } = require('../official');
 const { ok, err } = require('../util');
 
 const titleOf = u => u.garden_name || `${u.nickname || '某个人'}的地`;
 const PAGE = 10;
 const MSG = 12;
+const WALL_MAX = 400;
 const chars = s => [...String(s)].length;
 
 const messageSql = `SELECT m.id, m.from_user_id, m.content, m.created_at, u.nickname
@@ -40,11 +42,12 @@ function fenceScope(g, uid, visitor) {
 // 敞着门的地谁都能看；围起来的，只有主人，或者敲过门被放进来的人能看
 async function inside(req) {
   const [rows] = await db.query(
-    'SELECT id, nickname, garden_name, bio, visibility, fence_private, extra_trees FROM users WHERE id=?', [req.params.id]);
+    'SELECT id, nickname, garden_name, bio, visibility, fence_private, extra_trees, (username=?) AS official FROM users WHERE id=?',
+    [WALL, req.params.id]);
   const g = rows[0];
   if (!g) return { g: null, mode: null };
-  if (g.visibility === 'public') return { g, mode: 'public' };
   if (g.id === req.uid) return { g, mode: 'owner' };
+  if (g.visibility === 'public') return { g, mode: 'public' };
   if (!req.uid) return { g, mode: null };
   const [k] = await db.query(
     `SELECT id FROM knocks WHERE garden_user_id=? AND visitor_id=? AND status='approved'
@@ -88,7 +91,9 @@ r.get('/visits', maybe, async (req, res) => {
   const offset = (page - 1) * PAGE;
   const recent = sort === 'recent';
   const q = String(req.query.q || '').trim().slice(0, 20);
-  let where = recent ? 'EXISTS (SELECT 1 FROM messages m WHERE m.garden_user_id=u.id)' : '1=1';
+  // 名册只认对路过的人敞开的话：收起的篱笆和围起的院子不在这里露动静
+  const openTalk = "EXISTS (SELECT 1 FROM messages m WHERE m.garden_user_id=u.id AND u.visibility='public' AND u.fence_private=0)";
+  let where = recent ? openTalk : '1=1';
   const args = [];
   if (q) {
     where += " AND (u.nickname LIKE ? ESCAPE '!' OR u.garden_name LIKE ? ESCAPE '!' OR u.bio LIKE ? ESCAPE '!')";
@@ -103,12 +108,24 @@ r.get('/visits', maybe, async (req, res) => {
 
   const [list] = await db.query(
     `SELECT u.id, u.nickname, u.garden_name, u.bio, u.visibility, u.published_at,
-       (SELECT CAST(COUNT(*) AS SIGNED) FROM sessions s WHERE s.user_id=u.id) AS seed_count,
-       (SELECT CAST(IFNULL(MAX(s.level), 0) AS SIGNED) FROM sessions s WHERE s.user_id=u.id) AS top_level,
-       (SELECT MAX(m.created_at) FROM messages m WHERE m.garden_user_id=u.id) AS last_message_at,
-       (SELECT CAST(COUNT(*) AS SIGNED) FROM messages m WHERE m.garden_user_id=u.id) AS message_count,
-       (SELECT s.title FROM sessions s WHERE s.user_id=u.id ORDER BY s.id DESC LIMIT 1) AS latest_title,
-       (SELECT s.question FROM sessions s WHERE s.user_id=u.id ORDER BY s.id DESC LIMIT 1) AS latest_question
+       (SELECT CAST(COUNT(*) AS SIGNED) FROM sessions s
+         WHERE s.user_id=u.id AND s.placement NOT IN ('picked','held')
+           AND EXISTS (SELECT 1 FROM thoughts t WHERE t.session_id=s.id AND t.visible=1)) AS seed_count,
+       (SELECT CAST(IFNULL(MAX(s.level), 0) AS SIGNED) FROM sessions s
+         WHERE s.user_id=u.id AND s.placement NOT IN ('picked','held')
+           AND EXISTS (SELECT 1 FROM thoughts t WHERE t.session_id=s.id AND t.visible=1)) AS top_level,
+       (SELECT MAX(m.created_at) FROM messages m
+         WHERE m.garden_user_id=u.id AND u.visibility='public' AND u.fence_private=0) AS last_message_at,
+       (SELECT CAST(COUNT(*) AS SIGNED) FROM messages m
+         WHERE m.garden_user_id=u.id AND u.visibility='public' AND u.fence_private=0) AS message_count,
+       (SELECT s.title FROM sessions s
+         WHERE s.user_id=u.id AND s.placement NOT IN ('picked','held')
+           AND EXISTS (SELECT 1 FROM thoughts t WHERE t.session_id=s.id AND t.visible=1)
+         ORDER BY s.id DESC LIMIT 1) AS latest_title,
+       (SELECT s.question FROM sessions s
+         WHERE s.user_id=u.id AND s.placement NOT IN ('picked','held')
+           AND EXISTS (SELECT 1 FROM thoughts t WHERE t.session_id=s.id AND t.visible=1)
+         ORDER BY s.id DESC LIMIT 1) AS latest_question
      FROM users u WHERE ${where}
      ORDER BY ${order} LIMIT ? OFFSET ?`, [...args, PAGE, offset]);
   const [[{ total }]] = await db.query(
@@ -156,17 +173,23 @@ r.get('/garden/:id', maybe, async (req, res) => {
   if (!g || !mode) return fenced(req, res, g);
   if (g.id !== req.uid) await db.query('UPDATE users SET views=views+1 WHERE id=?', [g.id]);
 
-  let sql = `SELECT id, topic_name, title, question, level, thought_count, status, placement, branch,
-    started_at, ended_at FROM sessions WHERE user_id=? AND placement NOT IN ('picked','held')`;
+  // 外人只看得到还敞着的水滴；一滴都没露的叶子，整片不挂出来
+  const visitor = g.id !== req.uid;
+  const count = visitor
+    ? '(SELECT CAST(COUNT(*) AS SIGNED) FROM thoughts t WHERE t.session_id=s.id AND t.visible=1)'
+    : 's.thought_count';
+  let sql = `SELECT s.id, s.topic_name, s.title, s.question, s.level, ${count} AS thought_count,
+    s.status, s.placement, s.branch, s.started_at, s.ended_at
+    FROM sessions s WHERE s.user_id=? AND s.placement NOT IN ('picked','held')`;
   const args = [g.id];
+  if (visitor) sql += ' AND EXISTS (SELECT 1 FROM thoughts t WHERE t.session_id=s.id AND t.visible=1)';
   if (mode === 'knock') {
-    sql += ' AND id IN (SELECT session_id FROM knock_plots WHERE knock_id=?)';
+    sql += ' AND s.id IN (SELECT session_id FROM knock_plots WHERE knock_id=?)';
     args.push(knock);
   }
-  const [sessions] = await db.query(sql + ' ORDER BY id', args);
+  const [sessions] = await db.query(sql + ' ORDER BY s.id', args);
 
   // 别人院里的篱笆只挂今天的话，昨天的落进土里；主人自己看得到全部
-  const visitor = g.id !== req.uid;
   const scope = fenceScope(g, req.uid, visitor);
   const [list] = await db.query(
     `${messageSql} WHERE ${scope.where} ORDER BY m.id DESC LIMIT ?`, [...scope.args, MSG]);
@@ -174,8 +197,9 @@ r.get('/garden/:id', maybe, async (req, res) => {
   const [[{ total }]] = await db.query(
     `SELECT CAST(COUNT(*) AS SIGNED) AS total FROM messages m WHERE ${scope.where}`, scope.args);
 
+  const { official, ...rest } = g;
   ok(res, {
-    garden: { ...g, garden_name: titleOf(g) },
+    garden: { ...rest, garden_name: titleOf(g), official: !!official },
     sessions: sessions.map(s => ({ ...s, peek: s.question || s.title })),
     messages, message_total: total, mode
   });
@@ -185,6 +209,7 @@ r.get('/garden/:id', maybe, async (req, res) => {
 r.get('/garden/:id/session/:sid', maybe, async (req, res) => {
   const { g, mode, knock } = await inside(req);
   if (!g || !mode) return fenced(req, res, g);
+  const visitor = g.id !== req.uid;
   let sql = "SELECT * FROM sessions WHERE id=? AND user_id=? AND placement NOT IN ('picked','held')";
   const args = [req.params.sid, g.id];
   if (mode === 'knock') {
@@ -194,8 +219,13 @@ r.get('/garden/:id/session/:sid', maybe, async (req, res) => {
   const [rows] = await db.query(sql, args);
   if (!rows[0]) return err(res, '没找到这块地', 404);
   const [thoughts] = await db.query(
-    'SELECT id, dimension, content, level, img, created_at FROM thoughts WHERE session_id=? ORDER BY id', [rows[0].id]);
-  const [milestones] = await db.query(
+    `SELECT id, dimension, content, level, img, created_at FROM thoughts
+     WHERE session_id=?${visitor ? ' AND visible=1' : ''} ORDER BY id`, [rows[0].id]);
+  // 一滴都不给看的叶子，对外就当没有这片
+  if (visitor && !thoughts.length) return err(res, '没找到这块地', 404);
+  if (visitor) rows[0].thought_count = thoughts.length;
+  // 地层里收着当时的字，只归主人翻；外人只看地上还敞着的水滴
+  const [milestones] = visitor ? [[]] : await db.query(
     'SELECT * FROM milestones WHERE session_id=? ORDER BY id DESC', [rows[0].id]);
   ok(res, { session: rows[0], thoughts, milestones });
 });
@@ -278,6 +308,39 @@ r.delete('/messages/:id', auth, async (req, res) => {
   await db.query('DELETE FROM message_replies WHERE message_id=?', [m.id]);
   await db.query('DELETE FROM messages WHERE id=?', [m.id]);
   ok(res);
+});
+
+// 官方那面风墙：各块地篱笆上的话都收在这儿，最多四百句
+r.get('/messages/wall', maybe, async (req, res) => {
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.min(WALL_MAX, Math.max(1, Number(req.query.limit) || MSG));
+  const offset = (page - 1) * limit;
+  const q = String(req.query.q || '').trim().slice(0, 40);
+  // 风墙也守篱笆的规矩：敞着的话谁都能看；收起的，只给主人和留过话的人
+  let where = `((g.visibility='public' AND g.fence_private=0) OR g.id=? OR m.from_user_id=?)`;
+  const args = [req.uid || 0, req.uid || 0];
+  if (q) {
+    const like = likeArg(q);
+    where += ` AND (m.content LIKE ? ESCAPE '!' OR u.nickname LIKE ? ESCAPE '!'
+      OR g.garden_name LIKE ? ESCAPE '!'
+      OR EXISTS (SELECT 1 FROM message_replies r WHERE r.message_id=m.id
+        AND r.content LIKE ? ESCAPE '!'))`;
+    args.push(like, like, like, like);
+  }
+  const [list] = await db.query(
+    `SELECT m.id, m.from_user_id, m.content, m.created_at, u.nickname,
+       COALESCE(NULLIF(g.garden_name, ''), CONCAT(g.nickname, '的地')) AS garden_name
+     FROM messages m
+     JOIN users u ON u.id=m.from_user_id
+     JOIN users g ON g.id=m.garden_user_id
+     WHERE ${where} ORDER BY m.id DESC LIMIT ? OFFSET ?`,
+    [...args, limit, offset]);
+  const [[{ total }]] = await db.query(
+    `SELECT CAST(COUNT(*) AS SIGNED) AS total FROM messages m
+     JOIN users u ON u.id=m.from_user_id
+     JOIN users g ON g.id=m.garden_user_id
+     WHERE ${where}`, args);
+  ok(res, { list: await withReplies(list), total, page, limit, q });
 });
 
 // 自己篱笆外的留言：全带回来，前端一页三条地翻，回过的另归旧回音
@@ -444,7 +507,9 @@ r.post('/knocks/:id/decide', auth, async (req, res) => {
     return ok(res, { status: 'declined', reason });
   }
   const [sessions] = await db.query(
-    "SELECT id FROM sessions WHERE user_id=? AND placement NOT IN ('picked','held')", [req.uid]);
+    `SELECT s.id FROM sessions s
+     WHERE s.user_id=? AND s.placement NOT IN ('picked','held')
+       AND EXISTS (SELECT 1 FROM thoughts t WHERE t.session_id=s.id AND t.visible=1)`, [req.uid]);
   // 上回开过的那扇门已经看过了，这一次只留最新的回音，别在头像边上攒两个点
   await db.query(
     "UPDATE knocks SET seen_by_visitor=1 WHERE garden_user_id=? AND visitor_id=? AND status='approved'",
@@ -472,7 +537,11 @@ r.post('/garden/:id/session/:sid/keep', auth, async (req, res) => {
   const { g, mode, knock } = await inside(req);
   if (!g || !mode) return fenced(req, res, g);
   if (g.id === req.uid) return err(res, '自己的叶子，不用再夹');
-  const [rows] = await db.query('SELECT id FROM sessions WHERE id=? AND user_id=?', [req.params.sid, g.id]);
+  const [rows] = await db.query(
+    `SELECT s.id FROM sessions s
+     WHERE s.id=? AND s.user_id=? AND s.placement NOT IN ('picked','held')
+       AND EXISTS (SELECT 1 FROM thoughts t WHERE t.session_id=s.id AND t.visible=1)`,
+    [req.params.sid, g.id]);
   if (!rows[0]) return err(res, '没找到这片叶子', 404);
   if (mode === 'knock') {
     const [okPlot] = await db.query(
@@ -493,11 +562,16 @@ r.delete('/keeps/:sid', auth, async (req, res) => {
 r.get('/keeps', auth, async (req, res) => {
   const [list] = await db.query(
     `SELECT k.session_id, k.created_at AS kept_at,
-       s.id, s.topic_name, s.title, s.question, s.level, s.thought_count, s.status, s.placement, s.started_at,
-       EXISTS(SELECT 1 FROM thoughts WHERE session_id=s.id AND img <> '') AS has_img,
+       s.id, s.topic_name, s.title, s.question, s.level, s.status, s.placement, s.started_at,
+       EXISTS(SELECT 1 FROM thoughts WHERE session_id=s.id AND img <> '' AND visible=1) AS has_img,
+       (SELECT CAST(COUNT(*) AS SIGNED) FROM thoughts t
+         WHERE t.session_id=s.id AND t.visible=1) AS visible_thoughts,
        u.id AS owner_id, u.nickname, u.garden_name, u.visibility,
        (u.visibility='public' OR EXISTS (
-         SELECT 1 FROM knocks k2 WHERE k2.garden_user_id=u.id AND k2.visitor_id=? AND k2.status='approved'
+         SELECT 1 FROM knocks k2
+         JOIN knock_plots kp ON kp.knock_id=k2.id
+         WHERE k2.garden_user_id=u.id AND k2.visitor_id=? AND k2.status='approved'
+           AND kp.session_id=s.id
        )) AS opened
      FROM session_keeps k
      JOIN sessions s ON s.id=k.session_id
@@ -505,12 +579,16 @@ r.get('/keeps', auth, async (req, res) => {
      WHERE k.user_id=?
      ORDER BY k.created_at DESC, s.id DESC`, [req.uid, req.uid]);
   ok(res, {
-    list: list.map(s => s.opened ? {
-      ...s, opened: true, garden_name: titleOf(s)
-    } : {
-      session_id: s.session_id, id: s.id, kept_at: s.kept_at, owner_id: s.owner_id,
-      nickname: s.nickname, garden_name: titleOf(s), visibility: s.visibility,
-      opened: false, title: '', question: '', topic_name: '', placement: s.placement
+    list: list.map(s => {
+      const open = s.opened && s.visible_thoughts > 0;
+      const { visible_thoughts, ...rest } = s;
+      return open ? {
+        ...rest, opened: true, thought_count: visible_thoughts, garden_name: titleOf(s)
+      } : {
+        session_id: s.session_id, id: s.id, kept_at: s.kept_at, owner_id: s.owner_id,
+        nickname: s.nickname, garden_name: titleOf(s), visibility: s.visibility,
+        opened: false, hidden: !s.visible_thoughts, title: '', question: '', topic_name: '', placement: s.placement
+      };
     }),
     total: list.length
   });

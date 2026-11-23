@@ -1,31 +1,22 @@
--- 官方四块田：密码都是 12345678
--- 只给空库第一次初始化用：会先收掉这四块官方田的旧数据，再重新种
+-- 官方五个账号：四块田，一面收意见的墙；口令是固定的，不写进仓库
+-- 只给空库第一次初始化用：users 里只要已有一个人，就停下来，绝不删改线上的人和话
 -- 已有用户的线上库绝不跑这个文件；日常部署只补缺的账号，用 official-ensure.sql
 SET NAMES utf8mb4;
 
 SET @pw := '$2a$10$lRtiTc0fHV3RT40KiW8ntO4o6UnTIr/XgPLvsxytXEibOLUkrFHlu';
 
--- 上次的旧地先收干净，别叠成两层
-CREATE TEMPORARY TABLE seed_user (id INT PRIMARY KEY);
-INSERT INTO seed_user SELECT id FROM users WHERE username IN ('风过篱笆','土里长歌','五棵树下','藤爬半坡');
-DELETE t FROM thoughts t JOIN sessions s ON s.id=t.session_id WHERE s.user_id IN (SELECT id FROM seed_user);
-DELETE m FROM milestones m JOIN sessions s ON s.id=m.session_id WHERE s.user_id IN (SELECT id FROM seed_user);
-DELETE kp FROM knock_plots kp JOIN sessions s ON s.id=kp.session_id WHERE s.user_id IN (SELECT id FROM seed_user);
-DELETE sk FROM session_keeps sk JOIN sessions s ON s.id=sk.session_id WHERE s.user_id IN (SELECT id FROM seed_user);
-DELETE FROM sessions WHERE user_id IN (SELECT id FROM seed_user);
-DELETE mr FROM message_replies mr JOIN messages m ON m.id=mr.message_id
-  JOIN seed_user su ON su.id=m.garden_user_id OR su.id=m.from_user_id;
-DELETE m FROM messages m JOIN seed_user su ON su.id=m.garden_user_id OR su.id=m.from_user_id;
-DELETE k FROM knocks k JOIN seed_user su ON su.id=k.garden_user_id OR su.id=k.visitor_id;
-DELETE FROM session_keeps WHERE user_id IN (SELECT id FROM seed_user);
-DELETE FROM users WHERE id IN (SELECT id FROM seed_user);
-DROP TEMPORARY TABLE seed_user;
+-- 空库才种：临时表只有一行，users 里有人就会撞主键，让部署脚本停在这里
+CREATE TEMPORARY TABLE seed_guard (one TINYINT PRIMARY KEY);
+INSERT INTO seed_guard VALUES (1);
+INSERT INTO seed_guard SELECT 1 FROM users LIMIT 1;
+DROP TEMPORARY TABLE seed_guard;
 
 INSERT INTO users (username, password, nickname, visibility, garden_name, bio, extra_trees, views, published_at) VALUES
 ('风过篱笆', @pw, '风过篱笆', 'public', '风住的院子', '风从南边来，带着一身麦香。', 0, 1280, NOW()),
 ('土里长歌', @pw, '土里长歌', 'public', '长歌的田', '土里埋着种子，也埋着没说完的话。', 0, 960, NOW()),
 ('五棵树下', @pw, '五棵树下', 'public', '五棵树下', '五棵树，五种乘凉的法子。', 4, 1760, NOW()),
-('藤爬半坡', @pw, '藤爬半坡', 'public', '半坡藤影', '一根藤慢慢爬，爬过半个坡。', 4, 2130, NOW());
+('藤爬半坡', @pw, '藤爬半坡', 'public', '半坡藤影', '一根藤慢慢爬，爬过半个坡。', 4, 2130, NOW()),
+('官方', @pw, '官方', 'public', '官方', '路过的人写下的意见，都种在这一亩地里。', 0, 0, NOW());
 
 SET @u1 := (SELECT id FROM users WHERE username='风过篱笆');
 SET @u2 := (SELECT id FROM users WHERE username='土里长歌');

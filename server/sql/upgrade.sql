@@ -70,3 +70,31 @@ SELECT m.id, m.garden_user_id, m.reply, COALESCE(m.replied_at, m.created_at), 1
 FROM messages m
 WHERE m.reply IS NOT NULL AND m.reply <> ''
   AND NOT EXISTS (SELECT 1 FROM message_replies r WHERE r.message_id = m.id);
+
+-- 每一滴可以单独收起来；老想法默认都还敞着
+SET @has_thought_visible := (
+  SELECT COUNT(*) FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'thoughts' AND column_name = 'visible'
+);
+SET @sql := IF(@has_thought_visible = 0,
+  'ALTER TABLE thoughts ADD COLUMN visible TINYINT NOT NULL DEFAULT 1 AFTER level',
+  'DO 0');
+PREPARE s FROM @sql;
+EXECUTE s;
+DEALLOCATE PREPARE s;
+
+-- 意见要挂进官方的墙，比篱笆上的一句话长一点
+SET @msg_len := (
+  SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'messages' AND column_name = 'content'
+);
+SET @sql := IF(@msg_len IS NOT NULL AND @msg_len < 300,
+  'ALTER TABLE messages MODIFY content VARCHAR(300) NOT NULL',
+  'DO 0');
+PREPARE s FROM @sql;
+EXECUTE s;
+DEALLOCATE PREPARE s;
+
+-- 收话的那块官方田改叫「官方」；只认最初种下的那一行，改过就不再动
+UPDATE IGNORE users SET username='官方', nickname='官方', garden_name='官方'
+WHERE username='一亩心田' AND nickname='一亩心田' AND garden_name='一亩心田';

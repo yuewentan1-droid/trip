@@ -10,7 +10,7 @@ const props = defineProps({
   i: { type: Number, default: 0 },
   fold: { type: Number, default: 0 }
 });
-const emit = defineEmits(['edit', 'del', 'resize', 'view']);
+const emit = defineEmits(['edit', 'del', 'secret', 'resize', 'view']);
 
 // 页面里先只露三十字，长句子自己摊开；点地层时再把它们一起收回去
 const open = ref(false);
@@ -49,6 +49,11 @@ const style = {
       <span class="acts">
         <button v-if="canFold" class="more" type="button" :aria-expanded="open"
           @click.stop="open = !open"><Glyph name="expand" :size="22"/>{{ open ? '收起来' : '摊开看' }}</button>
+        <button class="secret" :class="{ off: t.visible === 0 }" type="button"
+          :title="t.visible === 0 ? '放回院里，路过的人也能看见' : '这一滴只给自己看'"
+          @click.stop="$emit('secret', t)">
+          <Glyph :name="t.visible === 0 ? 'leaf' : 'umbrella'" :size="19"/>{{ t.visible === 0 ? '放出来' : '只给自己' }}
+        </button>
         <button v-if="!frozen" class="del" title="拔掉这条" @click.stop="$emit('del', t)"><Glyph name="trash" :size="30"/></button>
       </span>
     </footer>
@@ -84,6 +89,12 @@ const style = {
   text-decoration: underline dashed rgba(139, 122, 92, .5) 1px; text-underline-offset: 3px; }
 .more .gl { opacity: .7; }
 .more:hover { color: var(--wood); }
+/* 这一滴只给自己看：伞一收，外人院里就翻不到了 */
+.secret { display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--fs-sm); color: var(--ink-faint); letter-spacing: .04em;
+  text-decoration: underline dashed rgba(139, 122, 92, .45) 1px; text-underline-offset: 3px; }
+.secret .gl, .secret :deep(.gl) { opacity: .65; }
+.secret:hover, .secret.off { color: var(--wood); }
 footer { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 4px; }
 .leaf { background: color-mix(in srgb, var(--c) 16%, transparent); color: var(--ink);
   box-shadow: inset 0 0 0 1.1px color-mix(in srgb, var(--c) 45%, transparent); }

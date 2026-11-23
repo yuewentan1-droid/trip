@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const { generateKeyPairSync, privateDecrypt, constants } = require('crypto');
 const db = require('../db');
 const { sign, auth } = require('../auth');
+const { OFFICIALS } = require('../official');
 const { ok, err } = require('../util');
 
 // 密码不在明信片上走：页面拿这把公钥锁好，服务器收到再拆开
@@ -63,6 +64,7 @@ r.post('/tour', auth, async (req, res) => {
 r.put('/me', auth, async (req, res) => {
   const [rows] = await db.query('SELECT * FROM users WHERE id=?', [req.uid]);
   const u = rows[0];
+  if (OFFICIALS.includes(u.username)) return err(res, '官方账号的名字、地和篱笆是固定的');
   const visibility = ['public', 'private'].includes(req.body.visibility)
     ? req.body.visibility : u.visibility;
 
@@ -95,7 +97,8 @@ r.put('/me', auth, async (req, res) => {
 });
 
 r.put('/password', auth, async (req, res) => {
-  const [rows] = await db.query('SELECT password FROM users WHERE id=?', [req.uid]);
+  const [rows] = await db.query('SELECT username, password FROM users WHERE id=?', [req.uid]);
+  if (OFFICIALS.includes(rows[0].username)) return err(res, '官方账号的钥匙是固定的');
   if (!bcrypt.compareSync(open(req.body.old_password), rows[0].password))
     return err(res, '原来的密码不对');
   const next = open(req.body.password);

@@ -154,6 +154,13 @@ input, textarea {
   transition: border-color .4s;
 }
 input:focus, textarea:focus { outline: none; border-bottom-color: var(--grass); }
+/* 没落笔前的提示往纸里退一点：字比正文小半号，颜色也浅，不跟真话抢眼睛 */
+input::placeholder, textarea::placeholder {
+  color: var(--ink-faint);
+  font-size: .88em;
+  letter-spacing: .03em;
+  opacity: .78;
+}
 textarea { resize: none; }
 ::selection { background: rgba(126, 154, 95, .25); }
 

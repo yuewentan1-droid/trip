@@ -37,10 +37,17 @@
                       :ref="el => bindRow(b.t.id, el)">
                       <PenText :text="b.t.content"/>
                     </div>
-                    <button v-if="overRows.has(b.t.id)" type="button" class="r-more"
-                      :aria-expanded="openRows.has(b.t.id)" @click.stop="toggleRow(b.t.id)">
-                      <Glyph name="expand" :size="18"/>{{ openRows.has(b.t.id) ? '收起来' : '摊开看' }}
-                    </button>
+                    <div class="r-acts">
+                      <button v-if="overRows.has(b.t.id)" type="button" class="r-more"
+                        :aria-expanded="openRows.has(b.t.id)" @click.stop="toggleRow(b.t.id)">
+                        <Glyph name="expand" :size="18"/>{{ openRows.has(b.t.id) ? '收起来' : '摊开看' }}
+                      </button>
+                      <button type="button" class="r-secret" :class="{ off: b.t.visible === 0 }"
+                        :title="b.t.visible === 0 ? '放回院里，路过的人也能看见' : '这一滴只给自己看'"
+                        @click.stop="toggleSecret(b.t)">
+                        <Glyph :name="b.t.visible === 0 ? 'leaf' : 'umbrella'" :size="18"/>{{ b.t.visible === 0 ? '放出来' : '只给自己' }}
+                      </button>
+                    </div>
                   </div>
                   <figure v-if="b.t.img" class="r-photo" title="点开看大图" role="button" tabindex="0"
                     @click.stop="photo = b.t.img" @keydown.enter.stop="photo = b.t.img">
@@ -209,6 +216,14 @@ const rowStyle = t => {
   };
 };
 
+// 这一滴只给自己，还是放回院里；改的是单滴，不牵动整块地
+async function toggleSecret(t) {
+  const visible = t.visible === 0 ? 1 : 0;
+  await api.setThoughtVisible(t.id, visible);
+  t.visible = visible;
+  toast(visible ? '这滴放回院里了，路过的人看得见' : '这滴收起来了，只有你看得见');
+}
+
 function copy() {
   const lines = [
     `【${session.value.topic_name}】${session.value.title}`,
@@ -306,10 +321,18 @@ main { flex: 1; min-width: 0; min-height: 0; padding: 0 max(24px, 4vw) 18px max(
 .r-body { flex: 0 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
 .r-text { width: 100%; line-height: 1.8; max-height: calc(1.8em * 3); overflow: hidden; }
 .r-text.open { max-height: none; }
-.r-more { display: inline-flex; align-items: center; gap: 4px; align-self: flex-end; margin-top: 2px;
+.r-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px;
+  align-self: flex-end; margin-top: 2px; }
+.r-more { display: inline-flex; align-items: center; gap: 4px;
   font-size: var(--fs-sm); color: var(--ink-faint); letter-spacing: .04em;
   text-decoration: underline dashed rgba(139, 122, 92, .5) 1px; text-underline-offset: 3px; }
 .r-more:hover { color: var(--wood); }
+/* 回看时也能把某一滴收起来；旁人院里就再翻不到这一句 */
+.r-secret { display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--fs-sm); color: var(--ink-faint); letter-spacing: .04em;
+  text-decoration: underline dashed rgba(139, 122, 92, .45) 1px; text-underline-offset: 3px; }
+.r-secret :deep(.gl) { opacity: .65; }
+.r-secret:hover, .r-secret.off { color: var(--wood); }
 .leaf { background: color-mix(in srgb, var(--c) 16%, transparent); color: var(--ink);
   box-shadow: inset 0 0 0 1.1px color-mix(in srgb, var(--c) 45%, transparent); }
 /* 当初压在这滴旁边的照片，回看时也一起摊出来 */

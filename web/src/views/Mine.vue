@@ -117,6 +117,7 @@ const rows = computed(() => {
 
 const open = s => {
   if (tab.value === 'kept') {
+    if (s.hidden) return toast('主人把这滴收起来了，只在自家院里看');
     if (!s.opened) return router.push('/garden/' + s.owner_id);
     return router.push(`/garden/${s.owner_id}?session=${s.id}`);
   }
@@ -150,7 +151,7 @@ async function unkeep(s) {
 }
 const badgeOf = s => tab.value === 'picked' ? '采回的'
   : tab.value === 'held' ? '待安顿'
-    : tab.value === 'kept' ? (s.placement === 'picked' ? '主人收着' : s.opened ? '夹着' : '门里')
+    : tab.value === 'kept' ? (s.hidden ? '只主人看' : s.placement === 'picked' ? '主人收着' : s.opened ? '夹着' : '门里')
       : s.status === 'running' ? '生长中' : '已封存';
 const tabCount = k => k === 'picked' ? picked.value.length
   : k === 'held' ? held.value.length : k === 'kept' ? keepList.value.length : plots.value.length;
@@ -291,7 +292,8 @@ async function del(s) {
                 <h3>{{ s.title || '这片叶子收在门里' }}</h3>
                 <p v-if="s.question" class="s-q">{{ s.question }}</p>
                 <p v-if="tab === 'kept' && !s.opened" class="s-q locked-say">
-                  主人把门围上了。去篱笆外说句话，开了门再接着看。
+                  {{ s.hidden ? '主人把这一叶上的水滴滴收起来了，只在自己院里看。'
+                    : '主人把门围上了。去篱笆外说句话，开了门再接着看。' }}
                 </p>
                 <div class="s-foot">
                   <span v-if="tab === 'kept' && !s.opened">门里</span>

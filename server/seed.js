@@ -15,7 +15,7 @@ const mysql = require('mysql2/promise');
     multipleStatements: true
   });
   await c.query(fs.readFileSync(path.join(__dirname, 'sql/official.sql'), 'utf8'));
-  console.log('四块官方的田种好了，密码都是 12345678');
+  console.log('四块官方的田种好了');
   await c.end();
 })().catch(e => {
   console.error(e.message);

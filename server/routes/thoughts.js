@@ -7,15 +7,28 @@ const chars = s => [...String(s)].length;
 
 r.use(auth);
 
-async function ctx(req, res) {
+async function mine(req, res) {
   const [rows] = await db.query(
     `SELECT t.*, s.user_id AS uid, s.status FROM thoughts t JOIN sessions s ON s.id=t.session_id WHERE t.id=?`,
     [req.params.id]);
   const t = rows[0];
   if (!t || t.uid !== req.uid) { err(res, '没这条想法', 404); return null; }
+  return t;
+}
+
+async function ctx(req, res) {
+  const t = await mine(req, res); if (!t) return null;
   if (t.status === 'finished') { sealed(res); return null; }
   return t;
 }
+
+// 这一滴给不给外人看；封了地也还能改，只是把字从别人院里收回来
+r.put('/:id/visible', async (req, res) => {
+  const t = await mine(req, res); if (!t) return;
+  const visible = req.body.visible ? 1 : 0;
+  await db.query('UPDATE thoughts SET visible=? WHERE id=?', [visible, t.id]);
+  ok(res, { visible }, visible ? '放回院里了' : '收起来了，只有你看得到');
+});
 
 r.put('/:id', async (req, res) => {
   const t = await ctx(req, res); if (!t) return;

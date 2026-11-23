@@ -8,6 +8,7 @@ const routes = [
   { path: '/mine', component: () => import('../views/Mine.vue') },
   { path: '/review/:id', component: () => import('../views/Review.vue') },
   { path: '/visits', component: () => import('../views/Visits.vue') },
+  { path: '/messages', component: () => import('../views/Messages.vue') },
   { path: '/town', component: () => import('../views/Town.vue') },
   { path: '/garden/:userId', component: () => import('../views/Garden.vue') }
 ];
@@ -17,7 +18,7 @@ const router = createRouter({ history: createWebHistory(), routes });
 router.beforeEach(to => {
   const token = localStorage.getItem('token');
   const open = to.path === '/login' || to.path === '/register' || to.path === '/visits'
-    || to.path.startsWith('/garden/');
+    || to.path === '/messages' || to.path.startsWith('/garden/');
   if (!token && !open) return { path: '/login', query: { to: to.fullPath } };
   if (token && (to.path === '/login' || to.path === '/register')) return '/';
 });

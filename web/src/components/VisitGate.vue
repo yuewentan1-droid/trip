@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import Glyph from './Glyph.vue';
 
-const emit = defineEmits(['go', 'town']);
+const emit = defineEmits(['go', 'town', 'advice']);
 const leaving = ref(false);
 // 牌子的另一面朝着城：翻过来看一眼，再决定往哪边走
 const side = ref('visit');
@@ -45,12 +45,19 @@ function enter() {
     <i class="grass g1"/><i class="grass g2"/><i class="grass g3"/>
     <span class="flutter"><Glyph name="butterfly" :size="23"/></span>
     <span class="hint">{{ side === 'visit' ? '去看看别人种了什么' : '城里的门还关着' }}</span>
+    <button class="advice" aria-label="您的宝贵意见，点开写两句" @click="emit('advice')">
+      <span class="advice-string" aria-hidden="true"/>
+      <span class="advice-paper">
+        <span class="advice-title"><Glyph name="pen" :size="15"/> 您的宝贵意见</span>
+        <i>点一下，写两句</i>
+      </span>
+    </button>
   </div>
 </template>
 
 <style scoped>
 /* 田埂边插着一块指路的木牌：一根木桩，一块削成箭头的板，蝶绕着板梢转 */
-.signpost { position: fixed; right: 4.5vw; top: 59%; z-index: 8; display: block;
+.signpost { position: fixed; right: 4.5vw; top: 59%; z-index: 20; display: block;
   width: 200px; height: 172px; perspective: 700px; transition: opacity .3s, translate .3s; }
 .signpost.leaving { opacity: 0; translate: 0 -8px; }
 /* 桩脚底下洇开一点土影，牌子才是插在地里的，不是浮着的 */
@@ -141,12 +148,40 @@ function enter() {
   transform: translateY(4px); transition: opacity .25s, transform .25s; pointer-events: none; }
 .signpost:hover .hint { opacity: 1; transform: translateY(0); }
 
+/* 桩上垂一张意见纸：不是又一块木牌，是路过的人能随手写字的地方 */
+.advice { position: absolute; left: -184px; top: min(0px, calc(41vh - 320px)); z-index: 3;
+  width: 186px; text-align: left; transform-origin: 100% 0; animation: noteSway 9s ease-in-out infinite; }
+.advice-string { position: absolute; right: -36px; top: 17px; width: 36px; height: 1px;
+  background: rgba(139, 107, 74, .5); }
+.advice-paper { position: relative; display: flex; flex-direction: column; gap: 1px;
+  padding: 7px 13px 9px; border: 1px solid rgba(150, 133, 100, .32);
+  border-radius: 2px 7px 3px 8px / 6px 3px 7px 2px;
+  background: color-mix(in srgb, var(--paper) 96%, transparent);
+  box-shadow: 0 3px 9px rgba(63, 48, 32, .13);
+  transition: background .3s, box-shadow .3s; }
+.advice-paper::after { content: ''; position: absolute; right: -1px; top: -1px; width: 10px; height: 10px;
+  background: linear-gradient(225deg, color-mix(in srgb, var(--paper) 80%, transparent) 50%,
+    rgba(150, 133, 100, .24) 50%); clip-path: polygon(0 0, 100% 0, 100% 100%); }
+.advice-title { display: flex; align-items: center; gap: 5px; font-size: var(--fs-base);
+  letter-spacing: .08em; color: var(--ink); }
+.advice-title :deep(.gl) { flex: none; color: var(--wood); opacity: .8; }
+.advice-paper i { font-style: normal; font-size: var(--fs-xs); letter-spacing: .06em; color: var(--ink-faint); }
+.advice:hover .advice-paper { background: color-mix(in srgb, var(--paper) 100%, transparent);
+  box-shadow: 0 5px 13px rgba(63, 48, 32, .17); }
+.advice:hover .advice-title { color: var(--grass-deep); }
+@keyframes noteSway {
+  0%, 100% { transform: rotate(-1.7deg); }
+  50% { transform: rotate(-.5deg); }
+}
+
 /* 窄屏不压在藤上：牌子和原野上下排开，纸页翻到头也总看得见 */
 @media (max-width: 1000px) {
   .signpost { position: relative; top: auto; right: auto; zoom: .66; margin: 0 14px 8px auto; }
   .hint { display: none; }
+  /* 牌缩小了，意见纸不能再跟着缩成一行小字 */
+  .advice { scale: 1.4; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .signpost, .board-flip, .board, .hint, .flutter, .flutter :deep(svg) { animation: none; transition: none; }
+  .signpost, .board-flip, .board, .hint, .flutter, .flutter :deep(svg), .advice { animation: none; transition: none; }
 }
 </style>

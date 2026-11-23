@@ -16,6 +16,7 @@ app.use('/api/topics', require('./routes/topics'));
 app.use('/api/sessions', require('./routes/sessions'));
 app.use('/api/thoughts', require('./routes/thoughts'));
 app.use('/api/milestones', require('./routes/milestones'));
+app.use('/api/feedback', require('./routes/feedback'));
 app.use('/api', require('./routes/visits'));
 // 接口的 404 得赶在前端兜底之前认领，不然打错的接口会拿回一张 index.html
 app.use('/api', (req, res) => res.status(404).json({ code: 404, msg: '没这个接口' }));

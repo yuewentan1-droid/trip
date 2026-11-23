@@ -261,6 +261,26 @@ const diving = ref(false);
 // 风从点下去的地方起：一把花和叶子被带走，散完了才翻纸
 const gust = ref(null);
 const showPen = ref(false);
+const adviceOpen = ref(false);
+const adviceText = ref('');
+const adviceBusy = ref(false);
+const adviceSent = ref(false);
+
+function openAdvice() {
+  adviceText.value = '';
+  adviceSent.value = false;
+  adviceOpen.value = true;
+}
+async function sendAdvice() {
+  if (adviceBusy.value) return;
+  adviceBusy.value = true;
+  try {
+    await api.feedback({ content: adviceText.value });
+    adviceSent.value = true;
+  } finally {
+    adviceBusy.value = false;
+  }
+}
 
 function openStart(t) {
   topicFor.value = t;
@@ -513,7 +533,33 @@ onMounted(() => {
     <VineScroll :el="meadow"/>
     </div>
 
-    <VisitGate @go="leaveTo('/visits')" @town="leaveTo('/town')"/>
+    <VisitGate @go="leaveTo('/visits')" @town="leaveTo('/town')" @advice="openAdvice"/>
+
+    <div v-if="adviceOpen" class="mask" @click.self="adviceOpen = false">
+      <div class="modal advice-modal">
+        <ModalSprig/>
+        <template v-if="adviceSent">
+          <h3 class="m-h"><Glyph name="leaf" :size="26"/> 话收到了，谢谢你</h3>
+          <p class="advice-done">已经挂在官方的墙上了。我们会一条条看，地里哪条路不好走，随时再说。</p>
+          <div class="m-acts">
+            <button class="btn" @click="adviceOpen = false">回去种地</button>
+          </div>
+        </template>
+        <template v-else>
+          <h3 class="m-h"><Glyph name="pen" :size="26"/> 您的宝贵意见</h3>
+          <p class="advice-lead">哪里不好走、想添点什么，写两句。<br>会挂到官方的墙上，种田的人都会看。</p>
+          <div class="f-item">
+            <textarea v-model="adviceText" rows="4" maxlength="300" aria-label="意见内容"
+              placeholder="比如：串门时想按最近说话排；手机上看叶子有点挤……"/>
+          </div>
+          <p class="advice-count">{{ adviceText.length }}/300</p>
+          <div class="m-acts">
+            <button class="btn-ghost" @click="adviceOpen = false">先不写</button>
+            <button class="btn" :disabled="adviceBusy || !adviceText.trim()" @click="sendAdvice">递过去</button>
+          </div>
+        </template>
+      </div>
+    </div>
 
     <div v-if="topicFor" class="mask" @click.self="topicFor = null">
       <div class="modal topic-modal" :style="{ width: topicW + 'px' }">
@@ -732,7 +778,8 @@ onMounted(() => {
   border: 1.4px solid rgba(126, 159, 174, .65); border-radius: 50%; pointer-events: none;
   animation: ripple 1.5s ease-out 2; }
 
-.mist { position: absolute; z-index: 18; right: 3%; bottom: 150px;
+/* 迷雾只是一句指路的话，压在地上和风里的种子下面，不挡它们 */
+.mist { position: absolute; z-index: 15; right: 3%; bottom: 150px;
   display: flex; align-items: center; gap: 9px; padding: 8px 15px 9px; color: var(--ink-faint);
   font-size: var(--fs-base); text-align: left; line-height: 1.5; border-radius: var(--r-c);
   background: color-mix(in srgb, var(--paper) 92%, transparent);
@@ -762,6 +809,14 @@ onMounted(() => {
 .seed-modal .m-h { font-size: var(--fs-title); font-weight: normal; margin-bottom: 18px; }
 .seed-modal .f-item { margin-bottom: 16px; }
 .seed-modal input { font-size: var(--fs-read); }
+
+/* 意见是一张摊开的纸，字不用端着 */
+.advice-modal { width: min(520px, 94vw); }
+.advice-modal .m-h { font-size: var(--fs-title); font-weight: normal; margin-bottom: 10px; }
+.advice-lead { margin-bottom: 16px; line-height: 1.9; font-size: var(--fs-md); color: var(--ink-soft); letter-spacing: .03em; }
+.advice-modal textarea { line-height: 1.75; font-size: var(--fs-base); }
+.advice-count { margin-top: 2px; text-align: right; font-size: var(--fs-xs); color: var(--ink-faint); }
+.advice-done { line-height: 1.9; font-size: var(--fs-md); color: var(--ink-soft); }
 .zone-pick { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
 .zone-pick button { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-read); color: var(--tone, var(--ink-soft));
   padding: 6px 17px 7px; border-radius: var(--r-c); box-shadow: inset 0 0 0 1.3px color-mix(in srgb, var(--tone, #968564) 38%, transparent);

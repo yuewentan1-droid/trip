@@ -54,6 +54,7 @@ export const api = {
 
   addThought: (id, d) => http.post(`/sessions/${id}/thoughts`, d),
   updThought: (id, d) => http.put(`/thoughts/${id}`, d),
+  setThoughtVisible: (id, visible) => http.put(`/thoughts/${id}/visible`, { visible }),
   delThought: id => http.delete(`/thoughts/${id}`),
 
   milestones: id => http.get(`/sessions/${id}/milestones`),
@@ -68,6 +69,7 @@ export const api = {
   addMessage: (id, d) => http.post(`/garden/${id}/messages`, d, { silent: true }),
   replyMessage: (id, d) => http.put(`/messages/${id}/reply`, d, { silent: true }),
   delMessage: id => http.delete(`/messages/${id}`, { silent: true }),
+  wall: params => http.get('/messages/wall', { params, silent: true }),
   inbox: () => http.get('/messages/inbox', { silent: true }),
   outbox: () => http.get('/messages/outbox', { silent: true }),
   notices: () => http.get('/notices', { silent: true }),
@@ -77,5 +79,7 @@ export const api = {
   seenKnock: id => http.post(`/knocks/${id}/seen`, {}, { silent: true }),
   keep: (gid, sid) => http.post(`/garden/${gid}/session/${sid}/keep`, {}, { silent: true }),
   unkeep: sid => http.delete(`/keeps/${sid}`, { silent: true }),
-  keeps: () => http.get('/keeps', { silent: true })
+  keeps: () => http.get('/keeps', { silent: true }),
+
+  feedback: d => http.post('/feedback', d)
 };

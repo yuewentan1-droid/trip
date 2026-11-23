@@ -11,6 +11,7 @@ import { ask } from '../utils/ask';
 import { TREE_MAX, extraTrees, treeCap, treeForm, treeGroups, treeRoots, treeStyle } from '../utils/grove';
 import SoulTree from '../components/SoulTree.vue';
 import GroundWind from '../components/GroundWind.vue';
+import MessageWind from '../components/MessageWind.vue';
 import WheatField from '../components/WheatField.vue';
 import PenText from '../components/PenText.vue';
 import MessageNotes from '../components/MessageNotes.vue';
@@ -37,6 +38,16 @@ const knockReason = ref('');
 const knocking = ref(false);
 const ready = ref(false);
 const mine = computed(() => garden.value && garden.value.id === user.user?.id);
+// 官方那块田不摆树：各家的留言都交给风，一屏最多四百句
+const official = computed(() => !!garden.value?.official);
+const wall = ref([]);
+const wallTotal = ref(0);
+const openWall = n => router.push({ path: '/messages', query: { focus: n.id } });
+async function loadWall() {
+  const d = await api.wall({ limit: 400 });
+  wall.value = d.list;
+  wallTotal.value = d.total;
+}
 // 别人家有几棵树，得按他自己种过的数来；一棵挂满了，旁边再冒一棵，不能只给看一棵
 const grove = computed(() => treeGroups(sessions.value
   .filter(s => s.placement === 'tree' || !s.placement)
@@ -164,6 +175,8 @@ async function load() {
   seen.clear();
   page.value = 1;
   fenceQ.value = '';
+  wall.value = [];
+  wallTotal.value = 0;
   try {
     const d = await api.garden(route.params.userId);
     garden.value = d.garden;
@@ -179,6 +192,7 @@ async function load() {
   } finally {
     ready.value = true;
     nextTick(fillFence);
+    if (official.value) loadWall().catch(() => {});
     const sid = Number(route.query.session);
     if (sid) nextTick(() => peek(sessions.value.find(x => x.id === sid) || { id: sid, status: 'finished' }));
   }
@@ -286,6 +300,7 @@ async function send() {
     if (mode.value === 'knock') toast('留给主人了');
     page.value = 1;
     await loadMessages();
+    if (official.value) loadWall().catch(() => {});
     draft.value = '';
     sent.value = true;
     clearTimeout(closeTimer);
@@ -364,11 +379,13 @@ onMounted(() => {
             {{ sessions.length ? `主人开了 ${sessions.length} 块地给你看` : '主人开了门，院里还没种下什么' }}
           </span>
           <template v-if="mode === 'public' || mode === 'owner'">
-            <span class="g-fence">篱笆上的话 <i v-if="total">{{ total }}</i></span>
+            <span v-if="official" class="g-fence">风里的留言 <i v-if="wallTotal">{{ wallTotal }}</i></span>
+            <span v-else class="g-fence">篱笆上的话 <i v-if="total">{{ total }}</i></span>
             <button v-if="mode === 'public' && !mine && user.isLogin" class="fence-write" @click="write">留句话</button>
             <router-link v-else-if="mode === 'public' && !mine" class="fence-write g-login"
               :to="{ path: '/login', query: { to: route.fullPath } }">登录后留句话</router-link>
-            <router-link class="fence-back" to="/visits">回串门</router-link>
+            <router-link v-if="official" class="fence-back" to="/messages">所有留言</router-link>
+            <router-link v-else class="fence-back" to="/visits">回串门</router-link>
           </template>
           <template v-else-if="mode === 'knock'">
             <span v-if="total" class="g-fence">篱笆上的话 <i>{{ total }}</i></span>
@@ -379,7 +396,7 @@ onMounted(() => {
       </header>
 
       <div class="g-main-wrap">
-      <main class="g-main">
+      <main class="g-main" :class="{ 'g-main-official': official }">
         <section class="g-tree">
           <svg class="art strata" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true">
             <path v-for="i in 5" :key="i"
@@ -389,17 +406,24 @@ onMounted(() => {
             <path v-for="i in 4" :key="i"
               :d="`M${4 + i * 3} ${i * 7} C 26 ${i * 7 - 3}, 48 ${i * 7 + 3}, 70 ${i * 7 - 1} C 82 ${i * 7 - 2}, 90 ${i * 7 + 1}, 96 ${i * 7}`"/>
           </svg>
-          <SoulTree v-for="(tree, i) in grove" :key="'tree' + i" class="g-soul"
-            :class="'g-soul-' + i" :style="treeStyle(i, 'home', tree.length, treeCap(i))" :sessions="tree" :cap="treeCap(i)"
-            :variant="treeForm(garden.id, i)"
-            :seed="(garden.id || 0) * 37 + i * 101" peek @open="peek"/>
-          <!-- 别人院里的树、地上的和风里的，和原野共用同一套生长 -->
-          <GroundWind :sessions="sessions" :roots="groundRoots" @open="peek"/>
+          <template v-if="official">
+            <!-- 官方不种自己的东西：全站的话都交给风 -->
+            <MessageWind :notes="wall" :total="wallTotal" @open="openWall" @all="router.push('/messages')"/>
+            <GroundWind :sessions="sessions"/>
+          </template>
+          <template v-else>
+            <SoulTree v-for="(tree, i) in grove" :key="'tree' + i" class="g-soul"
+              :class="'g-soul-' + i" :style="treeStyle(i, 'home', tree.length, treeCap(i))" :sessions="tree" :cap="treeCap(i)"
+              :variant="treeForm(garden.id, i)"
+              :seed="(garden.id || 0) * 37 + i * 101" peek @open="peek"/>
+            <!-- 别人院里的树、地上的和风里的，和原野共用同一套生长 -->
+            <GroundWind :sessions="sessions" :roots="groundRoots" @open="peek"/>
+          </template>
           <WheatField class="g-wheat" :n="16"/>
         </section>
       </main>
 
-      <aside v-if="total || fenceQ" class="fence-rail" aria-label="篱笆上的话">
+      <aside v-if="!official && (total || fenceQ)" class="fence-rail" aria-label="篱笆上的话">
         <div ref="fenceBody" class="fence-scroll" @scroll.passive="maybeMore">
           <div class="fence-sheet">
             <svg class="fence-ink" viewBox="0 0 120 1200" preserveAspectRatio="none" aria-hidden="true">
@@ -555,6 +579,8 @@ onMounted(() => {
 
 .g-main-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
 .g-main { position: relative; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
+/* 官方的风和纸都收在院子里，别飘到题头上面去 */
+.g-main-official { isolation: isolate; }
 /* 树照着原野的尺寸长：根扎在同一条土线上，树冠往上顶满一屏 */
 .g-tree { position: relative; height: 100%; min-height: 0; overflow: hidden;
   --tree-w: min(45vw, 640px); --tree-lift: 120px; --tree-x: calc(24.5% - 160px);

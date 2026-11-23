@@ -185,21 +185,27 @@ fi
 echo "补齐老库里后来加的列"
 mysql --default-character-set=utf8mb4 "$DB_NAME" < "$APP_DIR/server/sql/upgrade.sql"
 
-# 官方四块田每次部署都要齐：空库第一次种完整的；已有库只补缺的，绝不删人或删话
-official=$(mysql --default-character-set=utf8mb4 -N -B "$DB_NAME" -e "SELECT COUNT(*) FROM users WHERE username IN ('风过篱笆','土里长歌','五棵树下','藤爬半坡')" 2>/dev/null || echo 0)
-if [ "$official" != "4" ]; then
+# 旧官方田「一亩心田」如果还在，说明改名没落下去；先停下，别拿新数据去盖线上
+old_official=$(mysql --default-character-set=utf8mb4 -N -B "$DB_NAME" -e "SELECT COUNT(*) FROM users WHERE username='一亩心田'" 2>/dev/null || echo 0)
+if [ "$old_official" != "0" ]; then
+  fail "线上还留着旧官方账号「一亩心田」，可能名字被普通用户占着。先确认并手动把这行改成「官方」，脚本不会删人，也不会覆盖线上数据"
+fi
+
+# 官方五个账号每次部署都要齐：空库第一次种完整的；已有库只补缺的，绝不删人或删话
+official=$(mysql --default-character-set=utf8mb4 -N -B "$DB_NAME" -e "SELECT COUNT(*) FROM users WHERE username IN ('风过篱笆','土里长歌','五棵树下','藤爬半坡','官方')" 2>/dev/null || echo 0)
+if [ "$official" != "5" ]; then
   total_users=$(mysql --default-character-set=utf8mb4 -N -B "$DB_NAME" -e "SELECT COUNT(*) FROM users" 2>/dev/null || echo 0)
   if [ "$total_users" = "0" ]; then
-    log "空库第一次部署，种上四块官方的田"
+    log "空库第一次部署，种上官方账号和示例"
     mysql --default-character-set=utf8mb4 "$DB_NAME" < "$APP_DIR/server/sql/official.sql"
   else
     log "补齐缺的官方账号（只新增，不动已有数据）"
     mysql --default-character-set=utf8mb4 "$DB_NAME" < "$APP_DIR/server/sql/official-ensure.sql"
   fi
-  official=$(mysql --default-character-set=utf8mb4 -N -B "$DB_NAME" -e "SELECT COUNT(*) FROM users WHERE username IN ('风过篱笆','土里长歌','五棵树下','藤爬半坡')" 2>/dev/null || echo 0)
+  official=$(mysql --default-character-set=utf8mb4 -N -B "$DB_NAME" -e "SELECT COUNT(*) FROM users WHERE username IN ('风过篱笆','土里长歌','五棵树下','藤爬半坡','官方')" 2>/dev/null || echo 0)
 fi
-if [ "$official" = "4" ]; then
-  echo "四块官方的田都在"
+if [ "$official" = "5" ]; then
+  echo "官方账号都齐了"
 else
   echo "提醒：官方账号还缺，可能昵称被普通用户占着；先处理占用，别删线上数据"
 fi
@@ -211,12 +217,18 @@ CREATE USER IF NOT EXISTS '$DB_USER'@'127.0.0.1' IDENTIFIED BY '$DB_PASS';
 ALTER USER '$DB_USER'@'127.0.0.1' IDENTIFIED BY '$DB_PASS';
 GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';
 GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'127.0.0.1';
+GRANT ALL PRIVILEGES ON \`${DB_NAME}_test\`.* TO '$DB_USER'@'localhost';
+GRANT ALL PRIVILEGES ON \`${DB_NAME}_test\`.* TO '$DB_USER'@'127.0.0.1';
 FLUSH PRIVILEGES;
 SQL
 
 # ---------- 5. 依赖与构建 ----------
 log "安装后端依赖"
 npm --prefix "$APP_DIR/server" ci --omit=dev --registry="$NPM_REGISTRY" --replace-registry-host=always
+
+# 用户权限与隐私用例先过，才允许继续构建和重启
+log "跑 P0 用户权限与隐私用例（不通过就不上线）"
+( cd "$APP_DIR/server" && TEST_DB_NAME="${DB_NAME}_test" npm test )
 
 log "安装前端依赖并构建"
 npm --prefix "$APP_DIR/web" ci --registry="$NPM_REGISTRY" --replace-registry-host=always

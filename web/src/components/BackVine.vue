@@ -10,7 +10,7 @@ const router = useRouter();
 const user = useUser();
 const gust = ref(null);
 const blowing = ref(false);
-const backName = props.to === '/' ? '回原野' : '回我的田地';
+const backName = props.to === '/' ? '回原野' : props.to === '/visits' ? '回串门' : '回我的田地';
 
 // 木牌只给头一回进院的人看；之后藤上只留一个小结，别挡住左边那溜
 const tipKey = user.user?.username ? 'bvineTip:' + user.user.username : '';
