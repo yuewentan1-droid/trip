@@ -185,7 +185,7 @@ echo "补齐老库里后来加的列"
 mysql --default-character-set=utf8mb4 "$DB_NAME" < "$APP_DIR/server/sql/upgrade.sql"
 
 # 库里还没有官方账号时，把四块官方的田种上；已有的不动，免得收走篱笆上的话
-official=$(mysql -N -B "$DB_NAME" -e "SELECT COUNT(*) FROM users WHERE username IN ('风过篱笆','土里长歌','五棵树下','藤爬半坡')" 2>/dev/null || echo 0)
+official=$(mysql --default-character-set=utf8mb4 -N -B "$DB_NAME" -e "SELECT COUNT(*) FROM users WHERE username IN ('风过篱笆','土里长歌','五棵树下','藤爬半坡')" 2>/dev/null || echo 0)
 if [ "$official" = "0" ]; then
   log "种上四块官方的田"
   mysql --default-character-set=utf8mb4 "$DB_NAME" < "$APP_DIR/server/sql/official.sql"
