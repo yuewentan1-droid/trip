@@ -29,8 +29,13 @@ onMounted(() => notice.load());
 
 const inboxOpen = ref(false);
 const inboxTab = ref('notes');
+const inboxScope = ref('in');
 const profileOpen = ref(false);
-const openInbox = tab => { inboxTab.value = tab; inboxOpen.value = true; };
+const openInbox = (tab, scope = 'in') => {
+  inboxTab.value = tab;
+  inboxScope.value = scope;
+  inboxOpen.value = true;
+};
 
 /* ——— 篱笆：敞着还是围着，点一下就改 ——— */
 const vis = computed(() => user.user?.visibility || 'private');
@@ -208,6 +213,10 @@ async function del(s) {
         <button v-if="notice.messages" class="btn-ghost note-btn" @click="openInbox('notes')">
           <Glyph name="leaf" :size="15"/> {{ notice.messages }} 条留言
         </button>
+        <button v-if="notice.replies" class="nav-note" title="你留出去的话，有人回了"
+          @click="openInbox('notes', 'out')">
+          <Glyph name="pen" :size="13"/> 篱上回音 {{ notice.replies }} 句
+        </button>
         <button v-if="notice.doors" class="nav-note door" @click="openInbox('knocks')">
           <Glyph name="bell" :size="13"/> {{ notice.doors }} 处动静
         </button>
@@ -311,7 +320,7 @@ async function del(s) {
     </footer>
 
     <WheatField class="wheat" :n="12"/>
-    <InboxFence :open="inboxOpen" :tab="inboxTab" @close="inboxOpen = false"/>
+    <InboxFence :open="inboxOpen" :tab="inboxTab" :scope="inboxScope" @close="inboxOpen = false"/>
     <ProfileFence :open="profileOpen" @close="profileOpen = false"/>
   </div>
 </template>

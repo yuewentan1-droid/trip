@@ -17,6 +17,7 @@ const EXTRA_TREES_MAX = 4;
 const shape = u => ({
   id: u.id, username: u.username, nickname: u.nickname,
   visibility: u.visibility, garden_name: u.garden_name, bio: u.bio,
+  fence_private: u.fence_private ? 1 : 0,
   extra_trees: Math.min(EXTRA_TREES_MAX, u.extra_trees || 0),
   tour_seen: u.tour_seen ? 1 : 0
 });
@@ -36,7 +37,7 @@ r.post('/register', async (req, res) => {
     'INSERT INTO users (username, password, nickname, tour_seen) VALUES (?,?,?,0)',
     [username, bcrypt.hashSync(password, 10), username]);
   const u = { id: ret.insertId, username, nickname: username, visibility: 'private',
-    garden_name: '', bio: '', extra_trees: 0, tour_seen: 0 };
+    garden_name: '', bio: '', fence_private: 0, extra_trees: 0, tour_seen: 0 };
   ok(res, { token: sign(u), user: u });
 });
 
@@ -49,7 +50,7 @@ r.post('/login', async (req, res) => {
 
 r.get('/me', auth, async (req, res) => {
   const [rows] = await db.query(
-    'SELECT id, username, nickname, visibility, garden_name, bio, extra_trees, tour_seen FROM users WHERE id=?', [req.uid]);
+    'SELECT id, username, nickname, visibility, garden_name, bio, fence_private, extra_trees, tour_seen FROM users WHERE id=?', [req.uid]);
   ok(res, rows[0]);
 });
 
@@ -84,11 +85,13 @@ r.put('/me', auth, async (req, res) => {
   }
   const extra_trees = req.body.extra_trees === undefined
     ? u.extra_trees : Math.min(EXTRA_TREES_MAX, Math.max(0, Number(req.body.extra_trees) || 0));
+  const fence_private = req.body.fence_private === undefined
+    ? (u.fence_private ? 1 : 0) : (req.body.fence_private ? 1 : 0);
   const published_at = visibility === 'public' && u.visibility !== 'public' ? new Date() : u.published_at;
   await db.query(
-    'UPDATE users SET nickname=?, visibility=?, garden_name=?, bio=?, extra_trees=?, published_at=? WHERE id=?',
-    [nickname, visibility, garden_name, bio, extra_trees, published_at, req.uid]);
-  ok(res, { ...shape(u), nickname, visibility, garden_name, bio, extra_trees });
+    'UPDATE users SET nickname=?, visibility=?, garden_name=?, bio=?, fence_private=?, extra_trees=?, published_at=? WHERE id=?',
+    [nickname, visibility, garden_name, bio, fence_private, extra_trees, published_at, req.uid]);
+  ok(res, { ...shape(u), nickname, visibility, garden_name, bio, fence_private, extra_trees });
 });
 
 r.put('/password', auth, async (req, res) => {

@@ -14,6 +14,7 @@ const user = useUser();
 const nickname = ref('');
 const gardenName = ref('');
 const bio = ref('');
+const fencePrivate = ref(false);
 const oldPass = ref('');
 const newPass = ref('');
 const busy = ref(false);
@@ -23,6 +24,7 @@ watch(() => props.open, on => {
   nickname.value = user.user?.nickname || '';
   gardenName.value = user.user?.garden_name || '';
   bio.value = user.user?.bio || '';
+  fencePrivate.value = !!user.user?.fence_private;
   oldPass.value = newPass.value = '';
 });
 
@@ -36,8 +38,13 @@ async function save() {
   if (chars(bio.value.trim()) > 30) return toast('篱笆上那句话最多三十个字');
   busy.value = true;
   try {
-    await user.save({ nickname: name, garden_name: gardenName.value.trim(), bio: bio.value.trim() });
-    toast('名字和地都改好了');
+    await user.save({
+      nickname: name,
+      garden_name: gardenName.value.trim(),
+      bio: bio.value.trim(),
+      fence_private: fencePrivate.value ? 1 : 0
+    });
+    toast('名字、地和篱笆都改好了');
     emit('close');
   } finally {
     busy.value = false;
@@ -75,6 +82,14 @@ async function password() {
         <label>篱笆上的一句话</label>
         <input v-model="bio" placeholder="想让路过的人先看见什么"/>
       </div>
+      <div class="pf-item">
+        <label>别人留在篱笆上的话</label>
+        <div class="pf-pick">
+          <button :class="{ on: !fencePrivate }" @click="fencePrivate = false">谁路过都看得见</button>
+          <button :class="{ on: fencePrivate }" @click="fencePrivate = true">只给自己和说过话的人</button>
+        </div>
+        <p v-if="fencePrivate" class="pf-hint">收起后，路过的只看得见自己那几句。</p>
+      </div>
     </section>
 
     <section class="pf-block pf-pass">
@@ -102,6 +117,13 @@ async function password() {
   letter-spacing: .05em; margin-bottom: 10px; }
 .pf-item { margin-bottom: 13px; }
 .pf-item label { display: block; font-size: var(--fs-md); color: var(--ink-soft); margin-bottom: 2px; }
+/* 两句话挑一句，选中的那条拿草汁描一描 */
+.pf-pick { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.pf-pick button { font-size: var(--fs-md); color: var(--ink-faint); letter-spacing: .04em;
+  padding: 2px 1px 4px; border-bottom: 1.2px dashed transparent; transition: color .3s, border-color .3s; }
+.pf-pick button:hover { color: var(--wood); }
+.pf-pick button.on { color: var(--grass-deep); border-bottom-color: rgba(79, 107, 58, .5); }
+.pf-hint { font-size: var(--fs-sm); color: var(--ink-faint); letter-spacing: .04em; margin-top: 3px; }
 .pf-acts { display: flex; justify-content: flex-end; gap: 12px; margin-top: 4px; }
 .pf-pass { margin-top: 16px; padding-top: 14px; border-top: 1.2px dashed rgba(150, 133, 100, .38); }
 .pf-pass h4 { display: flex; align-items: center; gap: 6px; font-size: var(--fs-base); font-weight: normal;

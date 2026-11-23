@@ -16,7 +16,6 @@ const props = defineProps({
   canReply: { type: Boolean, default: true },
   erase: Boolean,
   rows: Boolean,
-  hist: Boolean,
   empty: { type: String, default: '' }
 });
 const emit = defineEmits(['erase', 'replied']);
@@ -29,13 +28,18 @@ const draft = ref('');
 const sending = ref(false);
 
 const mine = m => m.from_user_id === user.user?.id;
-// 门没开的时候只读：回复的笔和纸都不摊出来
-const replyable = computed(() => props.owner && props.canReply);
+// 主人回自己的篱笆；留话的人回自己那句话。别人家的旧话只看不插嘴
+const canReplyTo = m => {
+  if (!user.isLogin) return false;
+  if (props.owner) return props.canReply;
+  return m.from_user_id === user.user?.id;
+};
 // 合着的时候只露出人和时候，想读就把这张纸摊到眼前
 const close = () => { openNote.value = null; replying.value = 0; draft.value = ''; };
 // 纸按话的长短裁：短话一张便笺，长话铺到屏边，再长就顺着藤往下读
 const noteW = m => {
-  const n = [...String(m.content || '')].length + Math.round([...String(m.reply || '')].length * .7);
+  const n = [...String(m.content || '')].length
+    + (m.replies || []).reduce((sum, r) => sum + Math.round([...String(r.content || '')].length * .7), 0);
   return Math.min(980, Math.max(440, Math.round(400 + n * 3.2)));
 };
 const draftLen = computed(() => [...draft.value].length);
@@ -54,7 +58,7 @@ const scatter = m => {
 function begin(m) {
   openNote.value = m;
   replying.value = m.id;
-  draft.value = m.reply || '';
+  draft.value = '';
 }
 async function wipe(m) {
   const sure = await ask({
@@ -73,8 +77,7 @@ async function reply(m) {
   sending.value = true;
   try {
     const d = await api.replyMessage(m.id, { reply: text });
-    m.reply = d.reply;
-    m.replied_at = d.replied_at;
+    (m.replies ||= []).push(d);
     stopReply(m);
     toast('回在篱笆上了');
     emit('replied', m);
@@ -87,20 +90,23 @@ async function reply(m) {
 
 <template>
   <div v-if="rows" class="notes rows">
-    <article v-for="m in list" :key="m.id" class="note-row" :class="{ old: m.reply }"
+    <article v-for="m in list" :key="m.id" class="note-row" :class="{ old: m.replies?.length }"
       :aria-label="`${m.nickname} 的留言，摊开看`" @click="openNote = m">
       <span class="n-face">{{ (m.nickname || '田')[0] }}</span>
       <div class="nr-main">
         <header class="n-head">
           <span class="n-name" :title="m.nickname">{{ m.nickname }}</span>
           <span class="n-when">{{ said(m.created_at) }}</span>
+          <span v-if="m.replies?.length" class="n-echo">
+            <Glyph name="leaf" :size="11"/> {{ m.replies.length }} 回
+          </span>
         </header>
       </div>
       <div class="nr-acts" @click.stop>
         <button class="n-open" @click="openNote = m">
           <Glyph name="expand" :size="12"/> 摊开
         </button>
-        <button v-if="replyable && !hist" class="n-back" @click="begin(m)">{{ m.reply ? '再回一句' : '回一句' }}</button>
+        <button v-if="canReplyTo(m)" class="n-back" @click="begin(m)">{{ m.replies?.length ? '再回一句' : '回一句' }}</button>
         <button v-if="erase && mine(m)" class="n-erase" @click="wipe(m)">抹掉</button>
       </div>
     </article>
@@ -114,13 +120,16 @@ async function reply(m) {
         <span class="n-face">{{ (m.nickname || '田')[0] }}</span>
         <span class="n-name" :title="m.nickname">{{ m.nickname }}</span>
         <span class="n-when">{{ said(m.created_at) }}</span>
+        <span v-if="m.replies?.length" class="n-echo">
+          <Glyph name="leaf" :size="11"/> {{ m.replies.length }} 回
+        </span>
       </header>
       <div class="n-foot" @click.stop>
         <button class="n-open" @click="openNote = m">
           <Glyph name="expand" :size="12"/> 摊开
         </button>
         <button v-if="erase && mine(m)" class="n-erase" @click="wipe(m)">抹掉</button>
-        <button v-if="replyable" class="n-back" @click="begin(m)">{{ m.reply ? '再回一句' : '回一句' }}</button>
+        <button v-if="canReplyTo(m)" class="n-back" @click="begin(m)">{{ m.replies?.length ? '再回一句' : '回一句' }}</button>
       </div>
     </article>
     <p v-if="!list.length" class="n-empty">{{ empty || '篱笆上还空着，风吹过去只有叶子响。' }}</p>
@@ -140,21 +149,21 @@ async function reply(m) {
           <div class="nw-body-wrap">
             <div ref="nwBody" class="nw-body">
               <p class="nw-say">「{{ openNote.content }}」</p>
-              <div v-if="openNote.reply" class="nw-reply">
+              <div v-for="r in openNote.replies" :key="r.id" class="nw-reply">
                 <Glyph name="leaf" :size="13"/>
-                <span><b>{{ owner ? '你' : '主人' }}回：</b>{{ openNote.reply }}</span>
+                <span><b>{{ r.user_id === user.user?.id ? '你' : r.nickname }}回：</b>{{ r.content }}</span>
               </div>
             </div>
             <VineScroll :el="nwBody"/>
           </div>
-          <div v-if="(erase && mine(openNote)) || (replyable && !hist && replying !== openNote.id)" class="nw-foot">
+          <div v-if="(erase && mine(openNote)) || (canReplyTo(openNote) && replying !== openNote.id)" class="nw-foot">
             <button v-if="erase && mine(openNote)" class="n-erase" @click="wipe(openNote)">抹掉</button>
-            <button v-if="replyable && !hist && replying !== openNote.id" class="n-back" @click="begin(openNote)">
-              {{ openNote.reply ? '再回一句' : '回一句' }}
+            <button v-if="canReplyTo(openNote) && replying !== openNote.id" class="n-back" @click="begin(openNote)">
+              {{ openNote.replies?.length ? '再回一句' : '回一句' }}
             </button>
           </div>
           <Transition name="reply">
-            <form v-if="replyable && replying === openNote.id" class="n-form nw-form"
+            <form v-if="canReplyTo(openNote) && replying === openNote.id" class="n-form nw-form"
               @submit.prevent="reply(openNote)" @click.stop>
               <textarea v-model="draft" rows="2" maxlength="100" placeholder="回一句，别端着…" aria-label="回复留言"/>
               <div class="n-acts">
@@ -193,6 +202,8 @@ async function reply(m) {
 .n-name { flex: 1; min-width: 0; font-size: var(--fs-md); color: var(--wood);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .n-when { flex: none; font-size: var(--fs-sm); color: var(--ink-faint); }
+.n-echo { display: inline-flex; align-items: center; gap: 2px; flex: none;
+  font-size: var(--fs-sm); color: var(--grass-deep); letter-spacing: .03em; }
 .n-foot { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 5px 10px;
   margin-top: 8px; padding-top: 7px; min-height: 20px; border-top: 1.1px dashed rgba(150, 133, 100, .3); }
 .n-open { display: inline-flex; align-items: center; gap: 2px; margin-right: auto; color: var(--ink-faint);
@@ -244,6 +255,7 @@ async function reply(m) {
   background: color-mix(in srgb, var(--grass) 9%, transparent);
   border-radius: 4px 14px 5px 12px / 12px 5px 14px 6px; transform: rotate(.4deg); }
 .nw-reply :deep(svg) { color: var(--grass-deep); margin-top: 3px; }
+.nw-reply + .nw-reply { margin-top: 7px; }
 .nw-reply b { font-weight: normal; color: var(--grass-deep); }
 .nw-foot { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 16px;
   margin-top: 11px; padding-top: 9px; border-top: 1.1px dashed rgba(150, 133, 100, .34); }

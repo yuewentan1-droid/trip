@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
   visibility ENUM('public','private') NOT NULL DEFAULT 'private',
   garden_name VARCHAR(10) NOT NULL DEFAULT '',
   bio VARCHAR(60) NOT NULL DEFAULT '',
+  -- 篱笆上的话默认谁都看得见；主人收起来，就只留给自己和说过话的人
+  fence_private TINYINT NOT NULL DEFAULT 0,
   extra_trees INT NOT NULL DEFAULT 0,
   -- 新注册的用户是 0，头一回进院子看一遍各条路，看完就记成 1；老用户默认已经看过
   tour_seen TINYINT NOT NULL DEFAULT 1,
@@ -76,8 +78,19 @@ CREATE TABLE IF NOT EXISTS messages (
   replied_at DATETIME DEFAULT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_garden (garden_user_id, created_at),
-  INDEX idx_from (garden_user_id, from_user_id, created_at)
+  INDEX idx_from (garden_user_id, from_user_id, created_at),
+  INDEX idx_sender (from_user_id, created_at)
 );
+
+-- 一句话可以来回多说几轮；messages 还是那句话，回音按先后落在下面
+CREATE TABLE IF NOT EXISTS message_replies (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  message_id INT NOT NULL,
+  user_id INT NOT NULL,
+  content VARCHAR(200) NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_replies (message_id, id)
+) DEFAULT CHARSET = utf8mb4;
 
 CREATE TABLE IF NOT EXISTS knocks (
   id INT PRIMARY KEY AUTO_INCREMENT,

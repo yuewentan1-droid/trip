@@ -13,6 +13,8 @@ DELETE m FROM milestones m JOIN sessions s ON s.id=m.session_id WHERE s.user_id 
 DELETE kp FROM knock_plots kp JOIN sessions s ON s.id=kp.session_id WHERE s.user_id IN (SELECT id FROM seed_user);
 DELETE sk FROM session_keeps sk JOIN sessions s ON s.id=sk.session_id WHERE s.user_id IN (SELECT id FROM seed_user);
 DELETE FROM sessions WHERE user_id IN (SELECT id FROM seed_user);
+DELETE mr FROM message_replies mr JOIN messages m ON m.id=mr.message_id
+  JOIN seed_user su ON su.id=m.garden_user_id OR su.id=m.from_user_id;
 DELETE m FROM messages m JOIN seed_user su ON su.id=m.garden_user_id OR su.id=m.from_user_id;
 DELETE k FROM knocks k JOIN seed_user su ON su.id=k.garden_user_id OR su.id=k.visitor_id;
 DELETE FROM session_keeps WHERE user_id IN (SELECT id FROM seed_user);

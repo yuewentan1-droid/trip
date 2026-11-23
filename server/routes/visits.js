@@ -8,15 +8,39 @@ const PAGE = 10;
 const MSG = 12;
 const chars = s => [...String(s)].length;
 
-const messageSql = `SELECT m.id, m.from_user_id, m.content, m.reply, m.replied_at, m.created_at, u.nickname
+const messageSql = `SELECT m.id, m.from_user_id, m.content, m.created_at, u.nickname
   FROM messages m JOIN users u ON u.id=m.from_user_id`;
 // 篱笆上找话：按话里的字、回音或来人的名字找，通配符当普通字
 const likeArg = q => '%' + String(q).replace(/[!%_]/g, '!$&') + '%';
 
+// 一句话下面的回音按先后带回来，前端不用再一条条问
+async function withReplies(list) {
+  if (!list.length) return list;
+  const [rows] = await db.query(
+    `SELECT r.id, r.message_id, r.user_id, r.content, r.created_at, u.nickname
+     FROM message_replies r JOIN users u ON u.id=r.user_id
+     WHERE r.message_id IN (?) ORDER BY r.id`, [list.map(m => m.id)]);
+  const by = new Map(rows.map(r => [r.message_id, []]));
+  rows.forEach(r => by.get(r.message_id).push(r));
+  return list.map(m => ({ ...m, replies: by.get(m.id) || [] }));
+}
+
+// 别人家的篱笆只挂今天的话；主人把话收起来时，旁人只看见自己留下的
+function fenceScope(g, uid, visitor) {
+  let where = 'm.garden_user_id=?';
+  const args = [g.id];
+  if (visitor && g.fence_private) {
+    where += ' AND m.from_user_id=?';
+    args.push(uid || 0);
+  }
+  if (visitor) where += ' AND m.created_at >= CURDATE()';
+  return { where, args };
+}
+
 // 敞着门的地谁都能看；围起来的，只有主人，或者敲过门被放进来的人能看
 async function inside(req) {
   const [rows] = await db.query(
-    'SELECT id, nickname, garden_name, bio, visibility, extra_trees FROM users WHERE id=?', [req.params.id]);
+    'SELECT id, nickname, garden_name, bio, visibility, fence_private, extra_trees FROM users WHERE id=?', [req.params.id]);
   const g = rows[0];
   if (!g) return { g: null, mode: null };
   if (g.visibility === 'public') return { g, mode: 'public' };
@@ -143,16 +167,12 @@ r.get('/garden/:id', maybe, async (req, res) => {
 
   // 别人院里的篱笆只挂今天的话，昨天的落进土里；主人自己看得到全部
   const visitor = g.id !== req.uid;
-  let messages = [], total = 0;
-  if (mode === 'public' || mode === 'owner') {
-    const [list] = await db.query(
-      `${messageSql} WHERE m.garden_user_id=?${visitor ? ' AND m.created_at >= CURDATE()' : ''}
-       ORDER BY m.id DESC LIMIT ?`, [g.id, MSG]);
-    messages = list;
-    [[{ total }]] = await db.query(
-      `SELECT CAST(COUNT(*) AS SIGNED) AS total FROM messages
-       WHERE garden_user_id=?${visitor ? ' AND created_at >= CURDATE()' : ''}`, [g.id]);
-  }
+  const scope = fenceScope(g, req.uid, visitor);
+  const [list] = await db.query(
+    `${messageSql} WHERE ${scope.where} ORDER BY m.id DESC LIMIT ?`, [...scope.args, MSG]);
+  const messages = await withReplies(list);
+  const [[{ total }]] = await db.query(
+    `SELECT CAST(COUNT(*) AS SIGNED) AS total FROM messages m WHERE ${scope.where}`, scope.args);
 
   ok(res, {
     garden: { ...g, garden_name: titleOf(g) },
@@ -184,16 +204,16 @@ r.get('/garden/:id/session/:sid', maybe, async (req, res) => {
 r.get('/garden/:id/messages', maybe, async (req, res) => {
   const { g, mode } = await inside(req);
   if (!g || !mode) return fenced(req, res, g);
-  if (mode === 'knock') return err(res, '主人只开了几块地给你看');
   const visitor = g.id !== req.uid;
   const page = Math.max(1, Number(req.query.page) || 1);
   const offset = (page - 1) * MSG;
   const q = String(req.query.q || '').trim().slice(0, 40);
-  let where = `m.garden_user_id=?${visitor ? ' AND m.created_at >= CURDATE()' : ''}`;
-  const args = [g.id];
+  let { where, args } = fenceScope(g, req.uid, visitor);
   if (q) {
-    where += " AND (m.content LIKE ? ESCAPE '!' OR m.reply LIKE ? ESCAPE '!' OR u.nickname LIKE ? ESCAPE '!')";
     const like = likeArg(q);
+    where += ` AND (m.content LIKE ? ESCAPE '!' OR u.nickname LIKE ? ESCAPE '!'
+      OR EXISTS (SELECT 1 FROM message_replies r WHERE r.message_id=m.id
+        AND r.content LIKE ? ESCAPE '!'))`;
     args.push(like, like, like);
   }
   const [list] = await db.query(
@@ -201,7 +221,7 @@ r.get('/garden/:id/messages', maybe, async (req, res) => {
   const [[{ total }]] = await db.query(
     `SELECT CAST(COUNT(*) AS SIGNED) AS total FROM messages m JOIN users u ON u.id=m.from_user_id
      WHERE ${where}`, args);
-  ok(res, { list, total, page, limit: MSG, q });
+  ok(res, { list: await withReplies(list), total, page, limit: MSG, q });
 });
 
 // 留一句话：对同一块地一天最多三句；主人开了门，就算院里什么也没种下，也能留一句
@@ -220,23 +240,29 @@ r.post('/garden/:id/messages', auth, async (req, res) => {
     'INSERT INTO messages (garden_user_id, from_user_id, content) VALUES (?,?,?)',
     [g.id, req.uid, content]);
   const [[m], [me]] = await Promise.all([
-    db.query('SELECT id, from_user_id, content, reply, replied_at, created_at FROM messages WHERE id=?', [ret.insertId]),
+    db.query('SELECT id, from_user_id, content, created_at FROM messages WHERE id=?', [ret.insertId]),
     db.query('SELECT nickname FROM users WHERE id=?', [req.uid])
   ]);
-  ok(res, { ...m[0], nickname: me[0].nickname });
+  ok(res, { ...m[0], nickname: me[0].nickname, replies: [] });
 });
 
-// 主人在自己的留言篱笆上回一句
+// 主人和留话的人可以顺着同一句话往下说，回音一层层留着
 r.put('/messages/:id/reply', auth, async (req, res) => {
   const [rows] = await db.query('SELECT * FROM messages WHERE id=?', [req.params.id]);
   const m = rows[0];
-  if (!m || m.garden_user_id !== req.uid) return err(res, '这句不在你的篱笆上');
+  if (!m || (m.garden_user_id !== req.uid && m.from_user_id !== req.uid))
+    return err(res, '这句不在你们俩中间');
   const reply = String(req.body.reply || '').trim();
   if (!reply) return err(res, '总得回一句');
   if (chars(reply) > 100) return err(res, '话太长了，收一收');
-  await db.query('UPDATE messages SET reply=?, replied_at=NOW() WHERE id=?', [reply, m.id]);
-  const [back] = await db.query('SELECT reply, replied_at FROM messages WHERE id=?', [m.id]);
-  ok(res, back[0]);
+  const [ret] = await db.query(
+    'INSERT INTO message_replies (message_id, user_id, content) VALUES (?,?,?)',
+    [m.id, req.uid, reply]);
+  const [[back], [me]] = await Promise.all([
+    db.query('SELECT id, message_id, user_id, content, created_at FROM message_replies WHERE id=?', [ret.insertId]),
+    db.query('SELECT nickname FROM users WHERE id=?', [req.uid])
+  ]);
+  ok(res, { ...back[0], nickname: me[0].nickname });
 });
 
 r.delete('/messages/:id', auth, async (req, res) => {
@@ -244,6 +270,7 @@ r.delete('/messages/:id', auth, async (req, res) => {
   const m = rows[0];
   if (!m) return err(res, '这句已经没了');
   if (m.from_user_id !== req.uid) return err(res, '这句不是你留的');
+  await db.query('DELETE FROM message_replies WHERE message_id=?', [m.id]);
   await db.query('DELETE FROM messages WHERE id=?', [m.id]);
   ok(res);
 });
@@ -254,20 +281,22 @@ r.get('/messages/inbox', auth, async (req, res) => {
     `${messageSql} WHERE m.garden_user_id=? ORDER BY m.id DESC`, [req.uid]);
   const [[{ total }]] = await db.query(
     'SELECT CAST(COUNT(*) AS SIGNED) AS total FROM messages WHERE garden_user_id=?', [req.uid]);
-  ok(res, { list, total });
+  ok(res, { list: await withReplies(list), total });
 });
 
 // 我留在别人篱笆上的话：回音也一并带回来
 r.get('/messages/outbox', auth, async (req, res) => {
   const [list] = await db.query(
-    `SELECT m.id, m.garden_user_id, m.from_user_id, m.content, m.reply, m.replied_at, m.created_at,
+    `SELECT m.id, m.garden_user_id, m.from_user_id, m.content, m.created_at,
        u.nickname, u.garden_name
      FROM messages m JOIN users u ON u.id=m.garden_user_id
-     WHERE m.from_user_id=? ORDER BY m.id DESC`, [req.uid]);
+     WHERE m.from_user_id=?
+     ORDER BY COALESCE((SELECT MAX(r.created_at) FROM message_replies r
+       WHERE r.message_id=m.id), m.created_at) DESC, m.id DESC`, [req.uid]);
   const [[{ total }]] = await db.query(
     'SELECT CAST(COUNT(*) AS SIGNED) AS total FROM messages WHERE from_user_id=?', [req.uid]);
   ok(res, {
-    list: list.map(m => ({ ...m, garden_name: titleOf(m) })),
+    list: (await withReplies(list)).map(m => ({ ...m, garden_name: titleOf(m) })),
     total
   });
 });
@@ -276,13 +305,20 @@ r.get('/messages/outbox', auth, async (req, res) => {
 r.get('/notices', auth, async (req, res) => {
   const [[box]] = await db.query(
     `SELECT
-       (SELECT COUNT(*) FROM messages WHERE garden_user_id=? AND reply IS NULL) AS messages,
-       (SELECT COUNT(*) FROM messages WHERE garden_user_id=? AND reply IS NOT NULL) AS replied,
+       (SELECT COUNT(*) FROM messages m WHERE m.garden_user_id=? AND (
+         NOT EXISTS (SELECT 1 FROM message_replies r WHERE r.message_id=m.id)
+         OR (SELECT r.user_id FROM message_replies r WHERE r.message_id=m.id
+           ORDER BY r.id DESC LIMIT 1) <> ?)) AS messages,
+       (SELECT COUNT(*) FROM messages m WHERE m.garden_user_id=? AND EXISTS (
+         SELECT 1 FROM message_replies r WHERE r.message_id=m.id)
+         AND (SELECT r.user_id FROM message_replies r WHERE r.message_id=m.id
+           ORDER BY r.id DESC LIMIT 1) = ?) AS replied,
        (SELECT COUNT(*) FROM messages WHERE from_user_id=?) AS sent,
-       (SELECT COUNT(*) FROM messages WHERE from_user_id=? AND reply IS NOT NULL) AS replies,
+       (SELECT COUNT(*) FROM message_replies r JOIN messages m ON m.id=r.message_id
+         WHERE m.from_user_id=? AND r.user_id<>?) AS replies,
        (SELECT COUNT(DISTINCT visitor_id) FROM knocks WHERE garden_user_id=? AND status='pending') AS knocks,
        (SELECT COUNT(DISTINCT garden_user_id) FROM knocks WHERE visitor_id=? AND status='approved' AND seen_by_visitor=0) AS approvals`,
-    [req.uid, req.uid, req.uid, req.uid, req.uid, req.uid]);
+    [req.uid, req.uid, req.uid, req.uid, req.uid, req.uid, req.uid, req.uid, req.uid]);
   const [out] = await db.query(
     `SELECT k.status FROM knocks k
      WHERE k.visitor_id=? AND (k.status='pending' OR (k.status='declined' AND k.seen_by_visitor=0))
@@ -294,11 +330,18 @@ r.get('/notices', auth, async (req, res) => {
     `SELECT m.content, m.created_at, u.nickname FROM messages m JOIN users u ON u.id=m.from_user_id
      WHERE m.garden_user_id=? ORDER BY m.id DESC LIMIT 1`, [req.uid]);
   const [latestReply] = await db.query(
-    `SELECT m.reply, m.replied_at, m.content, u.nickname, u.garden_name
-     FROM messages m JOIN users u ON u.id=m.garden_user_id
-     WHERE m.from_user_id=? AND m.reply IS NOT NULL ORDER BY m.replied_at DESC, m.id DESC LIMIT 1`, [req.uid]);
+    `SELECT r.content AS reply, r.created_at AS replied_at, m.content, u.nickname, u.garden_name
+     FROM message_replies r
+     JOIN messages m ON m.id=r.message_id
+     JOIN users u ON u.id=m.garden_user_id
+     WHERE m.from_user_id=? AND r.user_id<>?
+     ORDER BY r.id DESC LIMIT 1`, [req.uid, req.uid]);
   const [latestSent] = await db.query(
-    `SELECT m.content, m.reply, m.replied_at, m.created_at, u.nickname, u.garden_name
+    `SELECT m.content, m.created_at, u.nickname, u.garden_name,
+       (SELECT r.content FROM message_replies r WHERE r.message_id=m.id
+         ORDER BY r.id DESC LIMIT 1) AS reply,
+       (SELECT r.created_at FROM message_replies r WHERE r.message_id=m.id
+         ORDER BY r.id DESC LIMIT 1) AS replied_at
      FROM messages m JOIN users u ON u.id=m.garden_user_id
      WHERE m.from_user_id=? ORDER BY m.id DESC LIMIT 1`, [req.uid]);
   const [latestDecline] = await db.query(

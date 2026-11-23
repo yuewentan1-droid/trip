@@ -282,10 +282,8 @@ async function send() {
   try {
     await api.addMessage(garden.value.id, { content });
     if (mode.value === 'knock') toast('留给主人了');
-    else {
-      page.value = 1;
-      await loadMessages();
-    }
+    page.value = 1;
+    await loadMessages();
     draft.value = '';
     sent.value = true;
     clearTimeout(closeTimer);
@@ -371,6 +369,7 @@ onMounted(() => {
             <router-link class="fence-back" to="/visits">回串门</router-link>
           </template>
           <template v-else-if="mode === 'knock'">
+            <span v-if="total" class="g-fence">篱笆上的话 <i>{{ total }}</i></span>
             <button class="fence-write" @click="write">留句话</button>
             <router-link class="g-back" to="/visits">回串门</router-link>
           </template>
@@ -398,7 +397,7 @@ onMounted(() => {
         </section>
       </main>
 
-      <aside v-if="(mode === 'public' || mode === 'owner') && (total || fenceQ)" class="fence-rail" aria-label="篱笆上的话">
+      <aside v-if="total || fenceQ" class="fence-rail" aria-label="篱笆上的话">
         <div ref="fenceBody" class="fence-scroll" @scroll.passive="maybeMore">
           <div class="fence-sheet">
             <svg class="fence-ink" viewBox="0 0 120 1200" preserveAspectRatio="none" aria-hidden="true">
@@ -416,7 +415,9 @@ onMounted(() => {
               :style="{ left: l.left + '%', top: l.top + '%', color: l.c, '--rot': l.rot + 'deg',
                 '--dur': l.dur + 's', '--delay': l.delay + 's' }"/>
 
-            <p v-if="mode === 'public' && !mine" class="fence-today">只挂今天的话，昨天的落进土里了。</p>
+            <p v-if="!mine" class="fence-today">
+              {{ garden.fence_private ? '主人把别人的话收起来了，这里只留你和主人的。' : '只挂今天的话，昨天的落进土里了。' }}
+            </p>
 
             <div class="fence-search">
               <Glyph name="search" :size="15"/>

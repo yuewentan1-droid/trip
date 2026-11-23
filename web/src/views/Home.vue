@@ -399,7 +399,11 @@ onMounted(() => {
         <button class="nav-link" @click="router.push('/mine')">我的田地</button>
         <router-link v-if="user.user?.id" class="nav-link" title="小院里的花草都记得你"
           :to="'/garden/' + user.user.id">回我的小院</router-link>
-        <span v-if="notice.words || notice.doors || notice.approvals || notice.declined" class="notice-line">
+        <span v-if="notice.replies || notice.words || notice.doors || notice.approvals || notice.declined" class="notice-line">
+          <button v-if="notice.replies" @click="openInbox('notes', 'out')">
+            篱上回音 {{ notice.replies }} 句
+          </button>
+          <i v-if="notice.replies && (notice.words || notice.doors || notice.approvals || notice.declined)">·</i>
           <button v-if="notice.words" @click="openInbox('notes')">
             篱上 {{ notice.words }} 句
           </button>

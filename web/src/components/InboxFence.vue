@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api';
+import { useUser } from '../store/user';
 import { useNotice } from '../store/notice';
 import { toast } from '../utils/toast';
 import FenceDialog from './FenceDialog.vue';
@@ -17,6 +18,7 @@ const props = defineProps({
 const emit = defineEmits(['close']);
 
 const router = useRouter();
+const user = useUser();
 const notice = useNotice();
 
 const tab = ref(props.tab);
@@ -62,8 +64,10 @@ async function loadNotes() {
   try {
     const d = noteScope.value === 'out' ? await api.outbox() : await api.inbox();
     const list = d.list || [];
-    notes.value = noteScope.value === 'out' ? list : list.filter(m => !m.reply);
-    history.value = noteScope.value === 'out' ? [] : list.filter(m => m.reply);
+    // 最后一句话是对方说的，就还等着你；你已经回过了，才落进旧回音
+    const waiting = m => m.replies?.[m.replies.length - 1]?.user_id !== user.user?.id;
+    notes.value = noteScope.value === 'out' ? list : list.filter(waiting);
+    history.value = noteScope.value === 'out' ? [] : list.filter(m => !waiting(m));
   } finally {
     loading.value = false;
   }
@@ -131,8 +135,10 @@ async function erase(m) {
   notice.load();
 }
 function replied(m) {
-  const i = notes.value.findIndex(x => x.id === m.id);
-  if (i > -1) history.value.unshift(notes.value.splice(i, 1)[0]);
+  if (noteScope.value === 'in') {
+    const i = notes.value.findIndex(x => x.id === m.id);
+    if (i > -1) history.value.unshift(notes.value.splice(i, 1)[0]);
+  }
   notice.load();
 }
 function openGarden(k) {
@@ -188,6 +194,7 @@ async function enter(k) {
       <button :class="{ on: tab === 'notes' && noteScope === 'out' }" @click="showNotes('out')">
         <Glyph name="pen" :size="17"/> 我留的
         <i v-if="notice.sent" class="n-count">{{ notice.sent }}</i>
+        <i v-if="notice.replies" class="n-count echo">回音 {{ notice.replies }}</i>
       </button>
       <button :class="{ on: tab === 'notes' && noteScope === 'old' }" @click="showNotes('old')">
         <Glyph name="daisy" :size="17"/> 旧回音
@@ -200,8 +207,7 @@ async function enter(k) {
     </nav>
 
     <template v-if="tab === 'notes'">
-      <MessageNotes :list="base" :owner="noteScope !== 'out'" :can-reply="noteScope === 'in'"
-        :hist="noteScope === 'old'"
+      <MessageNotes :list="base" :owner="noteScope !== 'out'" :can-reply="noteScope !== 'out'"
         :erase="noteScope === 'out'" rows
         :empty="noteScope === 'out' ? '你还没在别人篱笆上留过话。'
           : noteScope === 'old' ? '还没有回过的话，旧回音里空着。' : ''"
@@ -274,6 +280,7 @@ async function enter(k) {
 /* 记号跟着字的墨走，只有数字留一点晒过草的绿，不抢手写的画 */
 .f-tabs .n-count { font-style: normal; font-size: var(--fs-xs);
   color: color-mix(in srgb, var(--grass-deep) 55%, var(--ink-soft)); }
+.f-tabs .n-count.echo { color: var(--grass-deep); letter-spacing: .04em; }
 .f-loading, .f-empty { text-align: center; font-size: var(--fs-md); color: var(--ink-faint); letter-spacing: .06em;
   padding: 24px 0; }
 .knock-block { margin-bottom: 18px; }
