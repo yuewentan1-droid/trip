@@ -376,7 +376,7 @@ onMounted(() => {
           @click="night.toggle()">
           <Glyph :name="night.on ? 'sun' : 'moon'" :size="16"/> {{ night.on ? '天亮' : '天黑' }}
         </button>
-        <button class="nav-link" title="笔风" @click="showPen = true">笔风</button>
+        <button class="nav-link" title="笔风和字号" @click="showPen = true">笔风</button>
         <button class="nav-link" @click="router.push('/mine')">我的田地</button>
         <router-link v-if="user.user?.id" class="nav-link" title="小院里的花草都记得你"
           :to="'/garden/' + user.user.id">回我的小院</router-link>
@@ -480,7 +480,7 @@ onMounted(() => {
       <!-- 种在地上的和交给风的那些，和别人的院子里共用同一套生长 -->
       <GroundWind :sessions="field.sessions" :roots="groundRoots" @open="openPlot"/>
 
-      <button v-if="!blooming" class="mist" @click.stop="openSeed(null, { x: 48, y: 63 })">
+      <button class="mist" @click.stop="openSeed(null, { x: 48, y: 63 })">
         <Glyph name="flower" :size="22"/>
         <span>这片迷雾还没人开过，<br/>点一下撒颗自己的种子</span>
       </button>
@@ -565,7 +565,8 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.home { position: relative; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+.home { position: relative; display: flex; flex-direction: column; height: 100vh; height: 100dvh;
+  overflow: hidden; padding-bottom: env(safe-area-inset-bottom); }
 .home .top-nav nav { margin-left: auto; }
 .home .top-nav, .home .h-hero { transition: transform .3s, opacity .3s; }
 /* 去串门：整页轻轻抬一下，像人抬起头往远处看 */
@@ -706,10 +707,10 @@ onMounted(() => {
   border: 1.4px solid rgba(126, 159, 174, .65); border-radius: 50%; pointer-events: none;
   animation: ripple 1.5s ease-out 2; }
 
-.mist { position: absolute; z-index: 1; right: 3%; bottom: 150px;
+.mist { position: absolute; z-index: 18; right: 3%; bottom: 150px;
   display: flex; align-items: center; gap: 9px; padding: 8px 15px 9px; color: var(--ink-faint);
   font-size: var(--fs-base); text-align: left; line-height: 1.5; border-radius: var(--r-c);
-  background: color-mix(in srgb, var(--paper) 80%, transparent);
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
   box-shadow: inset 0 0 0 1.3px dashed rgba(167, 156, 133, .45); transition: color .4s, box-shadow .4s, transform .4s; }
 .mist:hover { color: var(--wood); box-shadow: inset 0 0 0 1.4px rgba(139, 107, 74, .5); transform: rotate(-.8deg); }
 
@@ -770,12 +771,13 @@ onMounted(() => {
 
 /* 窄屏：藤竖起来，记号左右交替挂在藤上，树接在下面 */
 @media (max-width: 1000px) {
-  .top-nav { padding: 10px 16px 6px; }
+  .top-nav { padding: max(10px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 6px
+    max(16px, env(safe-area-inset-left)); }
   .h-hero { padding: 10px 16px 2px; }
   .h-hero h1 { font-size: var(--fs-title); }
   .h-hero p { font-size: var(--fs-md); }
   .meadow { display: flex; flex-wrap: wrap; align-content: flex-start; justify-content: center;
-    gap: 2px 6px; padding: 2px 3vw 14px; cursor: default; }
+    gap: 2px 6px; padding: 2px 3vw calc(14px + env(safe-area-inset-bottom)); cursor: default; }
   /* 藤先走完，树再接在下面；不再钉在窗口上压着类目 */
   .tree { position: relative; order: 2; flex: 0 0 auto; width: calc(260px * var(--tree-grow, 1) * var(--tree-boost, 1)); height: auto;
     margin: 12px auto 0 5vw; top: auto; bottom: auto; left: auto; opacity: .75; transform: none; }
@@ -817,10 +819,24 @@ onMounted(() => {
   .h-wheat { position: relative; order: 4; flex: 0 0 100%; height: 120px; bottom: auto; margin-top: -18px; }
 }
 @media (max-width: 620px) {
+  .home .top-nav nav { width: 100%; justify-content: flex-start; }
+  .notice-line { flex-wrap: wrap; white-space: normal; font-size: var(--fs-md); }
   .seed-modal { padding: 22px 18px 18px; }
-  .seed-modal .m-h { font-size: var(--fs-head); }
+  .seed-modal .m-h { font-size: var(--fs-head); white-space: normal; }
   .seed-modal input { font-size: var(--fs-base); }
   .zone-pick button { font-size: var(--fs-base); padding: 5px 13px 6px; }
   .thumb { width: 32px; height: 32px; }
+}
+@media (max-width: 420px) {
+  .h-hero { padding: 6px 10px 0; }
+  .h-hero h1 { font-size: var(--fs-head); letter-spacing: .06em; }
+  .h-hero p { font-size: var(--fs-sm); line-height: 1.55; }
+  .home .top-nav { padding-bottom: 2px; }
+  .home .top-nav nav { gap: 7px; }
+  .home .top-nav .night-link { font-size: var(--fs-md); }
+  .home .avatar { width: 36px; height: 38px; }
+  .tree { width: calc(230px * var(--tree-grow, 1) * var(--tree-boost, 1)); }
+  .tree:not(.tree-0) { width: calc(190px * var(--tree-grow, 1) * var(--tree-boost, 1)); }
+  .mist { font-size: var(--fs-sm); padding: 7px 11px 8px; }
 }
 </style>

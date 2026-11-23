@@ -316,9 +316,11 @@ async function del(s) {
 
 <style scoped>
 .mine { position: relative; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
-  padding-left: clamp(78px, 7.5vw, 118px);
-  --fs-xs: 21px; --fs-sm: 22px; --fs-md: 23px; --fs-base: 25px; --fs-read: 27px;
-  --fs-head: 30px; --fs-title: 33px; --fs-hero: 40px; font-size: var(--fs-base); }
+  padding-left: clamp(78px, 7.5vw, 118px); padding-bottom: env(safe-area-inset-bottom);
+  --fs-xs: calc(21px * var(--ui-scale)); --fs-sm: calc(22px * var(--ui-scale));
+  --fs-md: calc(23px * var(--ui-scale)); --fs-base: calc(25px * var(--ui-scale));
+  --fs-read: calc(27px * var(--ui-scale)); --fs-head: calc(30px * var(--ui-scale));
+  --fs-title: calc(33px * var(--ui-scale)); --fs-hero: calc(40px * var(--ui-scale)); font-size: var(--fs-base); }
 .mine .top-nav { padding-left: 6px; }
 .nav-note { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-md); color: var(--grass-deep);
   letter-spacing: .04em; padding: 2px 3px 4px;
@@ -333,12 +335,12 @@ async function del(s) {
 .note-btn:active { box-shadow: inset 0 0 0 1.3px rgba(79, 107, 58, .4), var(--pressed); }
 .yard-btn { display: inline-flex; align-items: center; gap: 5px; }
 .fence-bar { flex: none; display: flex; align-items: center; gap: 18px; min-height: 52px;
-  padding: 0 max(24px, 4vw); --fence-note: 25px; }
+  padding: 0 max(24px, 4vw); --fence-note: calc(25px * var(--ui-scale)); }
 .fence-bar :deep(.fence-svg) { width: 91px; height: 50px; }
 /* 三道田垄：自己种的、采回来的、别人院里夹着的 */
 .tabs { display: flex; align-items: center; gap: 4px; flex: none; }
 .tabs button { display: inline-flex; align-items: baseline; gap: 4px; padding: 3px 9px 5px;
-  font-size: 25px; color: var(--ink-faint); letter-spacing: .05em;
+  font-size: calc(25px * var(--ui-scale)); color: var(--ink-faint); letter-spacing: .05em;
   border-bottom: 1.2px dashed transparent; transition: color .3s, border-color .3s; }
 .tabs button i { font-style: normal; font-size: var(--fs-xs); color: var(--ink-faint); }
 .tabs button:hover { color: var(--wood); }
@@ -419,13 +421,15 @@ h3 { margin: 4px 0 0; font-size: var(--fs-read); font-weight: normal; }
   .s-card { flex: 1 1 220px; }
 }
 @media (max-width: 720px) {
-  .mine { padding-left: 60px; }
+  .mine { padding-left: max(60px, env(safe-area-inset-left)); }
   .mine .top-nav { padding-left: 0; }
   .fence-bar { flex-wrap: wrap; gap: 2px 12px; padding-top: 4px; padding-bottom: 6px; }
   .fence-bar :deep(.fence-svg) { width: 76px; height: 42px; }
-  /* 字放大了，一垅摆不下就换行，别把后面的田垄挤到画外 */
-  .tabs { flex: 1 1 100%; flex-wrap: wrap; gap: 0 6px; }
-  .tabs button { padding: 3px 3px 5px; }
+  /* 四道田垄排成一行，窄了就在这一行里横着摸，不各占一行 */
+  .tabs { flex: 1 1 100%; flex-wrap: nowrap; gap: 0 6px; overflow-x: auto;
+    overscroll-behavior-x: contain; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button { flex: none; padding: 3px 3px 5px; }
   .find { order: 3; width: 100%; }
   .rank { gap: 18px 12px; }
   .s-card { flex: 1 1 44%; max-width: none; }
@@ -434,8 +438,18 @@ h3 { margin: 4px 0 0; font-size: var(--fs-read); font-weight: normal; }
 @media (max-width: 620px) {
   .rank { flex-direction: column; gap: 18px; }
   .s-card { flex: 1 1 auto; width: 100%; }
-  /* 两个门牌并排走，头像才是最后那一个 */
-  .mine .top-nav nav .btn-ghost { position: static; }
+  .s-foot { flex-wrap: wrap; white-space: normal; }
+  .s-time { margin-left: auto; }
+  /* 两个门牌和头像并排走，别一个占一行 */
+  .mine .top-nav nav { gap: 5px; }
+  .mine .top-nav nav .btn-ghost { position: static; padding: 6px 8px 7px;
+    font-size: calc(22px * var(--ui-scale)); }
   .mine .top-nav nav .avatar { margin-left: 2px; }
+}
+/* 手机一巴掌宽：四道田垄摆成两行，谁都不用藏在横滑后头 */
+@media (max-width: 480px) {
+  .tabs { flex-wrap: wrap; gap: 0 12px; overflow: visible; }
+  .tabs button { flex: 0 0 calc(50% - 6px); padding: 3px 0 5px;
+    font-size: calc(22px * var(--ui-scale)); }
 }
 </style>

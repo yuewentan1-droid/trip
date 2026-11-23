@@ -506,11 +506,13 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.garden { position: relative; display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
+.garden { position: relative; display: flex; flex-direction: column; height: 100vh; height: 100dvh;
+  overflow: hidden; padding-bottom: env(safe-area-inset-bottom); }
 .loading { margin-top: 30vh; }
 
 .g-top { flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;
-  padding: 24px 8px 12px max(24px, 6vw); z-index: 4; }
+  padding: max(24px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 12px max(24px, 6vw);
+  z-index: 4; }
 .g-title h1 { font-size: var(--fs-hero); font-weight: 400; letter-spacing: 1px; color: var(--ink); line-height: 1.35; }
 .g-title p { margin-top: 2px; font-size: var(--fs-base); letter-spacing: 1px; color: var(--ink-soft); }
 .g-links { display: flex; align-items: center; gap: 24px; padding-top: 1px; flex: none; }
@@ -574,7 +576,8 @@ body[data-night="1"] .fence-lamp { display: block; }
 .lamp-wick { stroke: #E4BC6C; stroke-width: 1.6; stroke-linecap: round; }
 @keyframes lampBreathe { from { opacity: .55; } to { opacity: 1; } }
 .fence-scroll { position: absolute; inset: 0; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none;
-  --fs-xs: 16px; --fs-sm: 18px; --fs-md: 20px; --fs-base: 22px; }
+  --fs-xs: calc(16px * var(--ui-scale)); --fs-sm: calc(18px * var(--ui-scale));
+  --fs-md: calc(20px * var(--ui-scale)); --fs-base: calc(22px * var(--ui-scale)); }
 .fence-scroll::-webkit-scrollbar { display: none; }
 .fence-sheet { position: relative; min-height: 100%; padding: 0 8px 22px 0; }
 .fence-ink { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible;
@@ -624,9 +627,12 @@ body[data-night="1"] .fence-lamp { display: block; }
 
 /* 别人的一块地摊在纸上：只许看，纸上没有笔，也没有铲子 */
 .read-mask { position: fixed; inset: 0; z-index: 45; display: grid; place-items: center;
-  padding: 24px; background: rgba(63, 58, 47, .24); }
+  padding: calc(24px + env(safe-area-inset-top)) calc(24px + env(safe-area-inset-right))
+    calc(24px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
+  background: rgba(63, 58, 47, .24); }
 .read-sheet { position: relative; display: flex; flex-direction: column; width: min(960px, 100%);
-  max-height: 88vh; overflow: hidden;
+  max-height: calc(100dvh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow: hidden;
   background: var(--card); border: 1.4px dashed rgba(150, 133, 100, .5);
   border-radius: var(--r-a); transform: rotate(-.35deg); }
 .read-body { flex: 1; min-height: 0; overflow-y: auto; padding: 28px 38px 22px 32px;
@@ -688,7 +694,8 @@ body[data-night="1"] .fence-lamp { display: block; }
 /* ——— 留话：一张从底下推上来的纸 ——— */
 .sheet-mask { position: fixed; inset: 0; z-index: 40; display: flex; align-items: flex-end;
   background: rgba(63, 58, 47, .2); }
-.sheet { position: relative; isolation: isolate; width: 100%; background: var(--paper); padding: 22px max(24px, 6vw) 26px;
+.sheet { position: relative; isolation: isolate; width: 100%; background: var(--paper);
+  padding: 22px max(24px, 6vw) calc(26px + env(safe-area-inset-bottom)) max(24px, 6vw);
   border-top: 1px dashed rgba(150, 133, 100, .3);
   box-shadow: 0 -10px 30px rgba(63, 58, 47, .12); }
 body[data-night="1"] .sheet { border-top-color: rgba(148, 160, 176, .2);
@@ -739,15 +746,27 @@ body[data-night="1"] .read-sheet { border-color: rgba(148, 160, 176, .22);
   .fence-sheet { padding-right: 24px; }
 }
 @media (max-width: 720px) {
-  .g-top { padding-top: 16px; }
+  .g-top { padding-top: max(16px, env(safe-area-inset-top)); }
   .g-links { gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
   .knock-open { flex-basis: 100%; text-align: right; }
 }
 /* 窄屏题头和门牌分两行站，别把回串门挤出纸外 */
 @media (max-width: 620px) {
-  .g-top { flex-direction: column; gap: 4px; padding: 12px 18px 8px; }
+  .g-top { flex-direction: column; gap: 4px; padding: max(12px, env(safe-area-inset-top))
+    max(18px, env(safe-area-inset-right)) 8px max(18px, env(safe-area-inset-left)); }
   .g-links { width: 100%; padding-top: 0; justify-content: flex-start; gap: 6px 14px; }
   .knock-open { flex-basis: 100%; text-align: left; }
   .look { display: none; }
+  .read-mask { padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
+    calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left)); }
+  .read-sheet { max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  .read-body { padding: 20px 18px 16px; }
+  .read-keep { padding: 11px 18px 13px; }
+  .read-drop { flex-wrap: wrap; }
+  .read-photo { width: 96px; }
+  .read-photo img { max-height: 72px; }
+  .sheet { padding: 18px max(18px, env(safe-area-inset-right))
+    calc(18px + env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left)); }
+  .sheet-foot { flex-wrap: wrap; gap: 10px 18px; }
 }
 </style>

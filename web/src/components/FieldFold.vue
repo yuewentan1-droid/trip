@@ -53,10 +53,10 @@ body[data-night="1"] .field-fold:hover .scare-img { filter: brightness(.82) sepi
   box-shadow: 0 1px 2px rgba(63, 48, 32, .35); }
 .field-fold:hover .sign { transform: translateX(-50%) rotate(-.6deg) translateY(-2px);
   background: linear-gradient(95deg, #816044, #A6845C 45%, #8D6B49); }
-.sg-num { font-size: clamp(26px, 2.3vw, 32px); line-height: 1; letter-spacing: -.02em;
-  font-variant-numeric: tabular-nums; }
-.sg-num i { font-style: normal; font-size: 15px; letter-spacing: .08em; margin-left: 2px; }
-.sg-act { font-size: 18px; letter-spacing: .12em; padding-bottom: 1px;
+.sg-num { font-size: clamp(calc(26px * var(--ui-scale)), 2.3vw, calc(32px * var(--ui-scale)));
+  line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.sg-num i { font-style: normal; font-size: calc(15px * var(--ui-scale)); letter-spacing: .08em; margin-left: 2px; }
+.sg-act { font-size: calc(18px * var(--ui-scale)); letter-spacing: .12em; padding-bottom: 1px;
   border-bottom: 1px dashed rgba(255, 253, 244, .55); }
 @keyframes foldIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 </style>

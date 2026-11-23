@@ -29,6 +29,7 @@ export const api = {
   me: () => http.get('/auth/me'),
   updateMe: d => http.put('/auth/me', d),
   updatePassword: d => http.put('/auth/password', d),
+  doneTour: () => http.post('/auth/tour'),
 
   topics: category => http.get('/topics', { params: { category } }),
   addTopic: d => http.post('/topics', d),

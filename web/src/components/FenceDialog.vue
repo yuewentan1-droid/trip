@@ -58,11 +58,15 @@ defineEmits(['close']);
 </template>
 
 <style scoped>
-.fence-mask { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 24px;
+.fence-mask { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center;
+  padding: calc(24px + env(safe-area-inset-top)) calc(24px + env(safe-area-inset-right))
+    calc(24px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
   background: rgba(63, 58, 47, .3); }
-.fence-box { position: relative; width: min(980px, 94vw); max-height: 90vh; display: flex; flex-direction: column;
-  --fs-xs: 17px; --fs-sm: 19px; --fs-md: 21px; --fs-base: 23px; --fs-read: 25px;
-  --fs-head: 28px; --fs-title: 31px; font-size: var(--fs-base);
+.fence-box { position: relative; width: min(980px, 94vw); display: flex; flex-direction: column;
+  max-height: calc(100dvh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  --fs-xs: calc(17px * var(--ui-scale)); --fs-sm: calc(19px * var(--ui-scale)); --fs-md: calc(21px * var(--ui-scale));
+  --fs-base: calc(23px * var(--ui-scale)); --fs-read: calc(25px * var(--ui-scale));
+  --fs-head: calc(28px * var(--ui-scale)); --fs-title: calc(31px * var(--ui-scale)); font-size: var(--fs-base);
   background: var(--paper); border: 1.5px dashed rgba(150, 133, 100, .55);
   border-radius: 26px 14px 30px 12px / 14px 28px 12px 30px;
   box-shadow: 0 18px 44px rgba(63, 58, 47, .16); overflow: hidden;
@@ -103,7 +107,10 @@ body[data-night="1"] .fence-box { border-color: rgba(148, 160, 176, .22);
 @keyframes vineBreathe { from { opacity: .34; } to { opacity: .5; } }
 
 @media (max-width: 620px) {
-  .fence-mask { padding: 12px; }
+  .fence-mask { padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
+    calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left)); }
+  .fence-box, .fence-box.wide { width: 100%;
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
   .f-hat { padding: 13px 42px 4px; }
   .f-body { padding: 2px 14px 16px; }
   .v2 { left: 14%; }

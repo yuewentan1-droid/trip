@@ -2,13 +2,19 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { iconUri } from '../icons';
+import { useUser } from '../store/user';
 import Toss from './Toss.vue';
 
 const props = defineProps({ to: { type: String, default: '/' } });
 const router = useRouter();
+const user = useUser();
 const gust = ref(null);
 const blowing = ref(false);
 const backName = props.to === '/' ? '回原野' : '回我的田地';
+
+// 木牌只给头一回进院的人看；之后藤上只留一个小结，别挡住左边那溜
+const tipKey = user.user?.username ? 'bvineTip:' + user.user.username : '';
+const showTag = ref(!!tipKey && localStorage.getItem(tipKey) === '1');
 
 // 五根藤从左上角垂下来，一根绕着一根走，没有哪一根是直的
 const VINES = [
@@ -44,6 +50,8 @@ const FLITS = [
 
 function leave(e) {
   if (blowing.value) return;
+  if (tipKey) localStorage.removeItem(tipKey);
+  showTag.value = false;
   const r = e.currentTarget.getBoundingClientRect();
   gust.value = { x: e.clientX || r.left + r.width / 2, y: e.clientY || r.top + 20 };
   blowing.value = true;
@@ -51,7 +59,12 @@ function leave(e) {
 </script>
 
 <template>
-  <button class="bvine" :class="{ blowing }" :title="'顺着藤蔓' + backName" :aria-label="backName" @click="leave">
+  <div class="bvine" :class="{ blowing }">
+    <button class="bvine-hit" :class="{ 'has-tag': showTag }" :title="'顺着藤蔓' + backName"
+      :aria-label="backName" @click="leave">
+      <i class="bvine-knot"/>
+      <span v-if="showTag" class="bvine-tag">{{ backName }}</span>
+    </button>
     <svg class="bvine-ink" viewBox="0 0 120 460" preserveAspectRatio="none" aria-hidden="true">
       <g v-for="(v, i) in VINES" :key="i" class="bvine-strand" :style="{ '--d': i * -2.1 + 's' }">
         <path :d="v.d" :style="{ strokeWidth: v.w, opacity: v.o }"/>
@@ -68,16 +81,32 @@ function leave(e) {
       <img :src="f.uri" alt=""/>
     </span>
     <Toss v-if="gust" :x="gust.x" :y="gust.y" @done="router.push(to)"/>
-  </button>
+  </div>
 </template>
 
 <style scoped>
 /* 回原野不摆箭头：五根藤缠着从左上垂下来，风一过整把叶子一起摇 */
 .bvine { position: absolute; left: 0; top: 0; z-index: 20; width: clamp(88px, 8.4vw, 132px);
   height: 100%; color: var(--wood); transform-origin: 32% 0;
+  pointer-events: none;
   animation: bvineSway 23s ease-in-out -7s infinite; }
+/* 藤还是整幅垂着，但只有梢上那块小木牌接人的手：不挡左边一溜的滚动 */
+.bvine-hit { position: absolute; left: 6px; top: calc(env(safe-area-inset-top) + 66px); z-index: 3;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 4px 2px 7px; color: inherit; pointer-events: auto; -webkit-tap-highlight-color: transparent; }
+/* 木牌收起来后只剩藤梢上这个小结，给个刚好够手指的地方，别让整幅藤接人的手 */
+.bvine-hit:not(.has-tag) { min-width: 30px; min-height: 36px; justify-content: center; }
+.bvine-knot { width: 7px; height: 10px; border-radius: 88% 12% 88% 12%;
+  background: var(--grass-deep); opacity: .62; transform: rotate(-24deg); }
+.bvine-tag { writing-mode: vertical-rl; padding: 7px 3px 8px; font-size: var(--fs-xs);
+  letter-spacing: 4px; line-height: 1; color: inherit;
+  background: color-mix(in srgb, var(--paper) 74%, transparent);
+  border-radius: 3px 11px 4px 10px / 10px 4px 11px 5px;
+  box-shadow: inset 0 0 0 1px rgba(150, 133, 100, .34);
+  transition: background .3s, box-shadow .3s, color .3s; }
 .bvine-ink { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .bvine-strand path { fill: none; stroke: currentColor; stroke-linecap: round; filter: url(#boil-soft);
+  vector-effect: non-scaling-stroke;
   animation: strandSway 17s ease-in-out var(--d, 0s) infinite alternate; transform-origin: 50% 0; }
 .bvine-strand:nth-child(2n) path { stroke: var(--grass-deep); }
 .bvine-strand:nth-child(3n) path { stroke: var(--grass); }
@@ -88,8 +117,11 @@ function leave(e) {
   transform: rotate(var(--r, 0deg)); }
 .bvine-leaf { animation: bvineLeaf var(--dur, 13s) ease-in-out var(--delay, 0s) infinite alternate; }
 .bvine-flit { animation: bvineFlit var(--dur, 22s) ease-in-out var(--delay, 0s) infinite alternate; }
-.bvine:hover { color: var(--clay); }
-.bvine:hover .bvine-strand path { stroke: var(--clay); }
+.bvine:has(.bvine-hit:hover) { color: var(--clay); }
+.bvine:has(.bvine-hit:hover) .bvine-strand path { stroke: var(--clay); }
+.bvine-hit:hover .bvine-tag { background: color-mix(in srgb, var(--paper) 92%, transparent);
+  box-shadow: inset 0 0 0 1px rgba(139, 107, 74, .58); }
+.bvine-hit:active .bvine-tag { transform: translateY(1px) rotate(-1deg); }
 
 /* 点下去先起一阵风：藤甩一下，叶和花被卷走，人才跟着风回原野 */
 .bvine.blowing { animation: bvineGust .75s cubic-bezier(.3, .8, .3, 1) forwards; }
@@ -141,6 +173,10 @@ function leave(e) {
 }
 
 @media (max-width: 720px) {
-  .bvine { width: 58px; }
+  .bvine { width: 56px; }
+  .bvine-hit { left: 3px; top: calc(env(safe-area-inset-top) + 58px); gap: 2px; }
+  .bvine-tag { font-size: calc(var(--fs-xs) - 3px); letter-spacing: 2px; padding: 6px 2px 7px; }
+  .bvine-leaf { scale: .8; }
+  .bvine-flit { display: none; }
 }
 </style>

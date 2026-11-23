@@ -1,43 +1,61 @@
 const r = require('express').Router();
 const bcrypt = require('bcryptjs');
+const { generateKeyPairSync, privateDecrypt, constants } = require('crypto');
 const db = require('../db');
 const { sign, auth } = require('../auth');
 const { ok, err } = require('../util');
+
+// 密码不在明信片上走：页面拿这把公钥锁好，服务器收到再拆开
+const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+const PUBLIC_KEY = publicKey.export({ type: 'spki', format: 'pem' });
+const open = v => privateDecrypt(
+  { key: privateKey, padding: constants.RSA_PKCS1_PADDING },
+  Buffer.from(String(v), 'base64')
+).toString('utf8');
 
 const EXTRA_TREES_MAX = 4;
 const shape = u => ({
   id: u.id, username: u.username, nickname: u.nickname,
   visibility: u.visibility, garden_name: u.garden_name, bio: u.bio,
-  extra_trees: Math.min(EXTRA_TREES_MAX, u.extra_trees || 0)
+  extra_trees: Math.min(EXTRA_TREES_MAX, u.extra_trees || 0),
+  tour_seen: u.tour_seen ? 1 : 0
 });
 const chars = s => [...String(s)].length;
 
+r.get('/key', (req, res) => ok(res, { key: PUBLIC_KEY }));
+
 r.post('/register', async (req, res) => {
   const username = String(req.body.username || '').trim();
-  const password = String(req.body.password || '');
+  const password = open(req.body.password);
   if (!username) return err(res, '名字总得起一个');
   if (chars(username) > 10) return err(res, '名字最多十个字');
   if (password.length < 6) return err(res, '密码至少六位');
   const [dup] = await db.query('SELECT id FROM users WHERE username=?', [username]);
   if (dup.length) return err(res, '这名字被人占了，换一个');
-  const [ret] = await db.query('INSERT INTO users (username, password, nickname) VALUES (?,?,?)',
+  const [ret] = await db.query(
+    'INSERT INTO users (username, password, nickname, tour_seen) VALUES (?,?,?,0)',
     [username, bcrypt.hashSync(password, 10), username]);
   const u = { id: ret.insertId, username, nickname: username, visibility: 'private',
-    garden_name: '', bio: '', extra_trees: 0 };
+    garden_name: '', bio: '', extra_trees: 0, tour_seen: 0 };
   ok(res, { token: sign(u), user: u });
 });
 
 r.post('/login', async (req, res) => {
   const [rows] = await db.query('SELECT * FROM users WHERE username=?', [req.body.username]);
   const u = rows[0];
-  if (!u || !bcrypt.compareSync(req.body.password, u.password)) return err(res, '名字和密码对不上');
+  if (!u || !bcrypt.compareSync(open(req.body.password), u.password)) return err(res, '名字和密码对不上');
   ok(res, { token: sign(u), user: shape(u) });
 });
 
 r.get('/me', auth, async (req, res) => {
   const [rows] = await db.query(
-    'SELECT id, username, nickname, visibility, garden_name, bio, extra_trees FROM users WHERE id=?', [req.uid]);
+    'SELECT id, username, nickname, visibility, garden_name, bio, extra_trees, tour_seen FROM users WHERE id=?', [req.uid]);
   ok(res, rows[0]);
+});
+
+r.post('/tour', auth, async (req, res) => {
+  await db.query('UPDATE users SET tour_seen=1 WHERE id=?', [req.uid]);
+  ok(res);
 });
 
 // 篱笆、地名、一句话、名字：改哪样传哪样，没传的保持原样
@@ -75,9 +93,9 @@ r.put('/me', auth, async (req, res) => {
 
 r.put('/password', auth, async (req, res) => {
   const [rows] = await db.query('SELECT password FROM users WHERE id=?', [req.uid]);
-  if (!bcrypt.compareSync(String(req.body.old_password || ''), rows[0].password))
+  if (!bcrypt.compareSync(open(req.body.old_password), rows[0].password))
     return err(res, '原来的密码不对');
-  const next = String(req.body.password || '');
+  const next = open(req.body.password);
   if (next.length < 6) return err(res, '新密码至少六位');
   await db.query('UPDATE users SET password=? WHERE id=?', [bcrypt.hashSync(next, 10), req.uid]);
   ok(res);

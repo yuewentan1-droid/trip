@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue';
 import { api } from '../api';
 import { useUser } from '../store/user';
+import { lock } from '../utils/lock';
 import { toast } from '../utils/toast';
 import FenceDialog from './FenceDialog.vue';
 import Glyph from './Glyph.vue';
@@ -48,7 +49,8 @@ async function password() {
   if (newPass.value.length < 6) return toast('新密码至少六位');
   busy.value = true;
   try {
-    await api.updatePassword({ old_password: oldPass.value, password: newPass.value });
+    const [old_password, password] = await Promise.all([lock(oldPass.value), lock(newPass.value)]);
+    await api.updatePassword({ old_password, password });
     oldPass.value = newPass.value = '';
     toast('密码换好了，下回用新的');
   } finally {

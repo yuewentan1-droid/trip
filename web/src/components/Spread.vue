@@ -58,14 +58,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', esc));
   font-size: var(--fs-sm); letter-spacing: .04em; padding: 1px 0; transition: color .3s; }
 .spread-open:hover { color: var(--wood); }
 
-.spread-mask { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 4vh 5vw;
+.spread-mask { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center;
+  padding: calc(4vh + env(safe-area-inset-top)) calc(5vw + env(safe-area-inset-right))
+    calc(4vh + env(safe-area-inset-bottom)) calc(5vw + env(safe-area-inset-left));
   background: rgba(63, 58, 47, .3); }
-.spread-sheet { display: flex; flex-direction: column; width: min(760px, 92vw); height: min(70vh, 620px);
+.spread-sheet { display: flex; flex-direction: column; width: min(760px, 100%); height: min(70dvh, 620px);
+  max-height: calc(100dvh - 8vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   padding: 18px 26px 14px; background: var(--paper); border: 1.5px dashed rgba(150, 133, 100, .55);
   border-radius: var(--r-soft); box-shadow: 0 18px 44px rgba(63, 58, 47, .16); transform: rotate(-.3deg); }
 /* 只有思考里的水滴这么摊：字少纸窄，字多纸往两边长，长到屏边就折行 */
-.spread-sheet.wide { width: min(94vw, max(760px, calc(560px + var(--chars) * 4.4px)));
-  height: min(64vh, 580px); transition: width .35s cubic-bezier(.2, .7, .3, 1); }
+.spread-sheet.wide { width: min(100%, max(760px, calc(560px + var(--chars) * 4.4px)));
+  height: min(64dvh, 580px); transition: width .35s cubic-bezier(.2, .7, .3, 1); }
 .s-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding-bottom: 8px; color: var(--wood); font-size: var(--fs-md); letter-spacing: .08em; }
 .s-head span { display: inline-flex; align-items: center; gap: 6px; }
@@ -82,7 +85,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', esc));
 .spread-enter-from, .spread-leave-to { opacity: 0; transform: translateY(8px) scale(.99); }
 
 @media (max-width: 560px) {
-  .spread-mask { padding: 12px; }
-  .spread-sheet { width: 100%; height: min(76vh, 640px); padding: 14px 16px 12px; }
+  .spread-mask { padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
+    calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left)); }
+  .spread-sheet { width: 100%; height: min(76dvh, 640px); padding: 14px 16px 12px;
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 }
 </style>

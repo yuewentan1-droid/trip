@@ -25,7 +25,8 @@ const emit = defineEmits(['done']);
 /* 问话的纸永远压在最上头：从叶子里夹书、取书，都不能被下头的弹层盖住 */
 .mask { z-index: 100; }
 /* 弹窗不许滚：话一多就说明该拆成两句说了 */
-.ask-modal { overflow: hidden; max-height: 80vh; width: min(360px, 88vw); padding: 18px 22px 16px; border: none; }
+.ask-modal { overflow: hidden; width: min(360px, 88vw); padding: 18px 22px 16px; border: none;
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 /* 歪边画在纸内侧，免得 overflow 把墨晕裁平 */
 .a-edge { position: absolute; inset: 1px; border: 1.5px dashed rgba(150, 133, 100, .55);
   border-radius: inherit; pointer-events: none; filter: url(#ink-blot); }

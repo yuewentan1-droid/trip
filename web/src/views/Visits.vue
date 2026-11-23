@@ -155,10 +155,10 @@ onMounted(() => load(1));
 
 <style scoped>
 .visits { position: relative; height: 100vh; height: 100dvh; display: flex; flex-direction: column;
-  overflow: hidden; padding-left: clamp(72px, 7vw, 112px); }
+  overflow: hidden; padding-left: clamp(72px, 7vw, 112px); padding-bottom: env(safe-area-inset-bottom); }
 
 .v-head { flex: none; min-height: 22vh; display: flex; flex-direction: column; justify-content: flex-end;
-  padding: 18px 0; position: relative; z-index: 2; }
+  padding: max(18px, env(safe-area-inset-top)) 0 18px; position: relative; z-index: 2; }
 .v-inner { width: 100%; margin: 0 auto; padding: 0 max(24px, 4vw); }
 h1 { font-size: var(--fs-hero); font-weight: 400; letter-spacing: 2px; color: var(--ink); }
 .v-sub { margin-top: 2px; font-size: var(--fs-base); letter-spacing: 1px; color: var(--ink-soft); }
@@ -254,15 +254,21 @@ h2 { margin-top: 12px; font-size: var(--fs-read); font-weight: 400; letter-spaci
   .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 720px) {
-  .visits { padding-left: 60px; }
-  .v-head { min-height: 18vh; padding: 14px 0; }
+  .visits { padding-left: max(60px, env(safe-area-inset-left)); }
+  .v-head { min-height: 18vh; padding: max(14px, env(safe-area-inset-top)) 0 14px; }
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 14px; }
   .visit-card { margin-top: 0; }
   .chips, .filters { gap: 10px 22px; }
-  .v-inner { padding: 0 14px; }
+  .v-inner { padding: 0 max(14px, env(safe-area-inset-right)) 0 max(14px, env(safe-area-inset-left)); }
   .foot { padding: 6px 14px 12px; }
 }
 @media (max-width: 480px) {
   .grid { grid-template-columns: 1fr; }
+  h1 { font-size: var(--fs-title); }
+  .v-sub { font-size: var(--fs-sm); }
+  .v-tools { margin-top: 15px; gap: 12px; }
+  .filters { width: 100%; gap: 8px 18px; }
+  .v-find { width: 100%; }
+  .v-head { min-height: 0; padding-bottom: 10px; }
 }
 </style>

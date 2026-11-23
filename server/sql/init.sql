@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
   garden_name VARCHAR(10) NOT NULL DEFAULT '',
   bio VARCHAR(60) NOT NULL DEFAULT '',
   extra_trees INT NOT NULL DEFAULT 0,
+  -- 新注册的用户是 0，头一回进院子看一遍各条路，看完就记成 1；老用户默认已经看过
+  tour_seen TINYINT NOT NULL DEFAULT 1,
   views INT NOT NULL DEFAULT 0,
   published_at DATETIME DEFAULT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP

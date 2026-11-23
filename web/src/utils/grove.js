@@ -36,6 +36,18 @@ export const groveCount = (count, extra = 0) => {
 export const treeGroups = (list, extra = 0) => {
   // 空院子先留一块地，树要等真落下东西才冒头；本机多种的那一棵也一样
   if (!list.length) return [];
+  // 官方演示里用负的 branch 记住这片叶子挂在哪棵树上：-1 是第一棵，-2 是第二棵……
+  // 普通地块的 branch 不是负数，仍按原来的顺序自己分树
+  const slotOf = s => (Number.isInteger(s.branch) && s.branch <= -1 && s.branch >= -TREE_MAX
+    ? -1 - s.branch : null);
+  if (list.some(s => slotOf(s) !== null)) {
+    const n = Math.min(TREE_MAX, Math.max(1, Math.floor(Number(extra) || 0) + 1,
+      ...list.map(s => (slotOf(s) ?? 0) + 1)));
+    const groups = Array.from({ length: n }, (_, i) => list.filter(s => slotOf(s) === i));
+    // 后来新种下的地没有树位，就先挂在最后一棵上
+    groups[n - 1].push(...list.filter(s => slotOf(s) === null));
+    return groups;
+  }
   const n = groveCount(list.length, extra);
   let at = 0;
   return Array.from({ length: n }, (_, i) => {

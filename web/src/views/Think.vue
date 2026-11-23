@@ -413,7 +413,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', offGuide, true
         <b>{{ session.title }}</b>
       </div>
       <div class="w-meta">第 {{ session.level }} 层 · {{ session.thought_count }} 滴</div>
-      <button class="penbtn" title="笔风" @click="showPen = true"><Glyph name="pen" :size="40"/></button>
+      <button class="penbtn" title="笔风和字号" @click="showPen = true"><Glyph name="pen" :size="40"/></button>
       <router-link v-if="finished" class="btn-ghost" :to="'/review/' + id">回看这块地</router-link>
       <button v-else ref="sealBtn" class="seal" @click="finish"><Glyph name="archive" :size="23"/> 结束思考</button>
     </header>
@@ -615,18 +615,21 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', offGuide, true
 <style scoped>
 /* 一整屏就是这一块地：顶上题头，中间三栏各自滚，页面本身不动 */
 .work { position: relative; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
-  padding-left: clamp(78px, 7.5vw, 118px);
-  --fs-xs: 19px; --fs-sm: 20px; --fs-md: 21px; --fs-base: 23px; --fs-read: 25px;
-  --fs-head: 28px; --fs-title: 31px; --fs-hero: 38px; font-size: var(--fs-base); }
+  padding-left: clamp(78px, 7.5vw, 118px); padding-bottom: env(safe-area-inset-bottom);
+  --fs-xs: calc(19px * var(--ui-scale)); --fs-sm: calc(20px * var(--ui-scale));
+  --fs-md: calc(21px * var(--ui-scale)); --fs-base: calc(23px * var(--ui-scale));
+  --fs-read: calc(25px * var(--ui-scale)); --fs-head: calc(28px * var(--ui-scale));
+  --fs-title: calc(31px * var(--ui-scale)); --fs-hero: calc(38px * var(--ui-scale)); font-size: var(--fs-base); }
 
 .w-top {
-  flex: none; display: flex; align-items: center; gap: 13px; padding: 10px 26px 9px;
+  flex: none; display: flex; align-items: center; gap: 13px;
+  padding: max(10px, env(safe-area-inset-top)) max(26px, env(safe-area-inset-right)) 9px 26px;
   position: relative; z-index: 20; background: color-mix(in srgb, var(--paper) 90%, transparent);
 }
 .w-top::after { content: ''; position: absolute; left: 3%; right: 3%; bottom: 0; height: 1.4px;
   background: repeating-linear-gradient(90deg, rgba(150, 133, 100, .5) 0 9px, transparent 9px 15px); }
 .w-name { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;
-  font-size: 30px; font-weight: 600; letter-spacing: .05em;
+  font-size: calc(30px * var(--ui-scale)); font-weight: 600; letter-spacing: .05em;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .w-topic { color: var(--wood); }
 .w-name b { font-weight: 600; letter-spacing: .05em; }
@@ -680,8 +683,11 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', offGuide, true
 }
 /* 水滴是正文，跟整页一个字号；只有右边地层退六号，纸面才松 */
 .w-right-wrap { position: relative; min-width: 0; min-height: 0; display: flex; }
-.w-right { position: relative; flex: 1; min-width: 0; min-height: 0; --fs-xs: 17px; --fs-sm: 20px; --fs-md: 22px; --fs-base: 23px;
-  --fs-read: 24px; --fs-head: 27px; --fs-title: 30px; --fs-hero: 34px; }
+.w-right { position: relative; flex: 1; min-width: 0; min-height: 0;
+  --fs-xs: calc(17px * var(--ui-scale)); --fs-sm: calc(20px * var(--ui-scale));
+  --fs-md: calc(22px * var(--ui-scale)); --fs-base: calc(23px * var(--ui-scale));
+  --fs-read: calc(24px * var(--ui-scale)); --fs-head: calc(27px * var(--ui-scale));
+  --fs-title: calc(30px * var(--ui-scale)); --fs-hero: calc(34px * var(--ui-scale)); }
 .stream-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
 .stream { position: relative; flex: 1; min-width: 0; min-height: 0; padding-left: 46px; }
 .pebble { position: absolute; left: 12px; top: -6px; width: 20px; height: 20px; border-radius: 50%;
@@ -772,7 +778,8 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', offGuide, true
   transform: rotate(-.8deg); animation: fadeUp .5s ease-out backwards; transition: transform .5s, color .4s; }
 .arc-fab:hover { transform: rotate(.5deg) translateY(-2px); color: var(--grass-deep); }
 
-.tip-bar { position: fixed; top: 16px; left: 50%; z-index: 60; color: var(--wood); background: var(--card);
+.tip-bar { position: fixed; top: calc(16px + env(safe-area-inset-top)); left: 50%; z-index: 60;
+  max-width: calc(100vw - 24px); color: var(--wood); background: var(--card);
   transform: translateX(-50%) rotate(-.8deg); text-align: center; letter-spacing: .12em; font-size: var(--fs-base);
   padding: 8px 22px 9px; border-radius: var(--r-c); border: 1.4px dashed rgba(139, 107, 74, .45);
   animation: tipDown .5s ease-out; }
@@ -788,7 +795,8 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', offGuide, true
 .m-h { display: flex; align-items: center; gap: 7px; font-size: var(--fs-base); color: var(--wood); margin-bottom: 10px; }
 .modal .m-h { font-size: var(--fs-head); }
 /* 编辑这页横向铺开，纸的高度定住：字多了只在字框里滚，底下的字数和照片都钉在原处 */
-.edit-modal { width: min(720px, 94vw); height: 82vh; max-height: 760px; overflow: hidden; display: flex; flex-direction: column; }
+.edit-modal { width: min(720px, 94vw); height: min(82dvh, 760px); overflow: hidden; display: flex; flex-direction: column;
+  max-height: calc(100dvh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 .edit-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .edit-body > .m-h, .edit-body > .f-item { flex: none; }
 .edit-body > .edit-well { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
@@ -802,7 +810,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', offGuide, true
 .modal.edit-modal :deep(.tick) { font-size: calc(var(--fs-read) - 5px); }
 /* 屏幕矮的时候纸铺高一点、钟面收一点，字框才留得下几行 */
 @media (max-height: 820px) {
-  .edit-modal { height: 88vh; }
+  .edit-modal { height: 88dvh; }
   .modal.edit-modal :deep(.compass) { max-width: 180px; }
   .edit-modal .m-h { margin-bottom: 6px; }
 }
@@ -853,13 +861,13 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', offGuide, true
 }
 
 @media (max-width: 720px) {
-  .work { padding-left: 60px; }
+  .work { padding-left: max(60px, env(safe-area-inset-left)); }
 }
 
 /* 手机：河道收细，顶栏只留必要的，没键盘就不提 Ctrl + Enter */
 @media (max-width: 620px) {
-  .w-top { gap: 9px; padding: 9px 13px 8px; }
-  .w-name { font-size: 23px; gap: 7px; }
+  .w-top { gap: 9px; padding: max(9px, env(safe-area-inset-top)) max(13px, env(safe-area-inset-right)) 8px 13px; }
+  .w-name { font-size: calc(23px * var(--ui-scale)); gap: 7px; }
   .w-meta, .hint { display: none; }
   .place-ways { flex-direction: column; }
   .way { flex-direction: row; gap: 9px; padding: 10px 12px; text-align: left; }

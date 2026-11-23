@@ -1,11 +1,13 @@
 <script setup>
 import { PENS } from '../constants/pens';
 import { usePen } from '../store/pen';
+import { useScale } from '../store/scale';
 import Glyph from './Glyph.vue';
 import ModalSprig from './ModalSprig.vue';
 
 defineProps({ wide: Boolean });
 const pen = usePen();
+const scale = useScale();
 const emit = defineEmits(['close']);
 </script>
 
@@ -26,13 +28,24 @@ const emit = defineEmits(['close']);
           </div>
         </div>
       </div>
+      <div class="scale-row">
+        <div class="scale-copy">
+          <b>字号跟着窗口走</b>
+          <span>大屏字大一点，小屏字小一点；手机上不变</span>
+        </div>
+        <button class="scale-switch" :class="{ on: scale.on }" role="switch" :aria-checked="scale.on"
+          :aria-label="scale.on ? '关掉字号跟随窗口' : '打开字号跟随窗口'" @click="scale.toggle()">
+          <i/>
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
 /* 十支笔摊在同一行：中文五支靠左，英文五支靠右，谁也不用翻 */
-.pen-modal { overflow: hidden; width: min(1020px, 96vw); padding: 24px 30px 18px; border: none; }
+.pen-modal { overflow-x: hidden; overscroll-behavior: contain; width: min(1020px, 96vw);
+  padding: 24px 30px 18px; border: none; }
 .pen-modal.wide { width: min(1120px, 96vw); padding: 28px 36px 22px; }
 .pen-modal.wide h3 { font-size: var(--fs-head); }
 .pen-line { display: flex; align-items: flex-end; gap: 20px; }
@@ -57,13 +70,31 @@ const emit = defineEmits(['close']);
 .pen-row button:hover { background: rgba(139, 107, 74, .08); transform: rotate(-.6deg); }
 .pen-row button.on { box-shadow: inset 0 0 0 1.5px rgba(79, 107, 58, .55); background: rgba(79, 107, 58, .09); }
 .pen-row button.on span { color: var(--grass-deep); }
+/* 字号开关：不跟整块面板抢戏，只留一枚能拨的小扣 */
+.scale-row { display: flex; align-items: center; gap: 18px; margin-top: 16px; padding-top: 13px;
+  border-top: 1.1px dashed rgba(150, 133, 100, .4); }
+.scale-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.scale-copy b { font-size: var(--fs-md); font-weight: normal; color: var(--ink); letter-spacing: .04em; }
+.scale-copy span { font-size: var(--fs-sm); color: var(--ink-faint); letter-spacing: .03em; }
+.scale-switch { position: relative; flex: none; width: 50px; height: 26px;
+  border-radius: 15px 11px 16px 10px / 11px 16px 10px 15px;
+  background: rgba(139, 107, 74, .07); box-shadow: inset 0 0 0 1.4px rgba(139, 107, 74, .35);
+  transition: background .35s, box-shadow .35s; }
+.scale-switch i { position: absolute; top: 3px; left: 4px; width: 18px; height: 18px;
+  border-radius: 52% 46% 50% 48%; background: var(--paper); box-shadow: 0 1px 3px rgba(94, 83, 64, .24);
+  transition: transform .35s cubic-bezier(.3, .75, .3, 1), background .35s; }
+.scale-switch:hover { box-shadow: inset 0 0 0 1.5px rgba(139, 107, 74, .5); }
+.scale-switch.on { background: rgba(79, 107, 58, .16); box-shadow: inset 0 0 0 1.4px rgba(79, 107, 58, .5); }
+.scale-switch.on i { transform: translateX(22px); background: var(--grass-deep); }
+.scale-switch.on:hover { box-shadow: inset 0 0 0 1.5px rgba(79, 107, 58, .62); }
 @media (max-width: 640px) {
-  .pen-modal, .pen-modal.wide { padding: 19px 14px 15px; }
+  .pen-modal, .pen-modal.wide { width: 100%; padding: 19px 14px 15px; }
   .pen-line { gap: 10px; overflow-x: auto; scrollbar-width: none; }
   .pen-line::-webkit-scrollbar { display: none; }
   .pen-group { flex: 0 0 306px; }
   .pen-group + .pen-group { padding-left: 10px; }
   .pen-row { gap: 4px; }
   .pen-row button { padding: 5px 2px 6px; }
+  .scale-row { margin-top: 12px; padding-top: 10px; }
 }
 </style>

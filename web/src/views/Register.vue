@@ -28,7 +28,7 @@
 import { reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useUser } from '../store/user';
-import { toast } from '../utils/toast';
+import { lock } from '../utils/lock';
 
 const route = useRoute();
 const router = useRouter();
@@ -40,8 +40,7 @@ async function go() {
   if (!form.username || !form.password) return;
   busy.value = true;
   try {
-    await user.register(form);
-    toast('田给你留好了，进去吧');
+    await user.register({ username: form.username, password: await lock(form.password) });
     const to = typeof route.query.to === 'string' && /^\/(?!\/)/.test(route.query.to) ? route.query.to : '/';
     router.push(to);
   } finally {
@@ -51,15 +50,29 @@ async function go() {
 </script>
 
 <style scoped>
-.auth { display: grid; grid-template-columns: 1.2fr 1fr; height: 100vh; overflow: hidden; }
+.auth { display: grid; grid-template-columns: 1.2fr 1fr; height: 100vh; height: 100dvh; overflow: hidden; }
 .auth-art { position: relative; }
 .auth-art svg { position: absolute; inset: 0; width: 100%; height: 100%; filter: saturate(.55) sepia(.16) contrast(.93); }
 .auth-quote { position: absolute; bottom: 14%; left: 0; right: 0; text-align: center; color: #fff; font-size: var(--fs-read); text-shadow: 0 1px 4px rgba(63,58,47,.4); }
-.auth-form { display: flex; flex-direction: column; justify-content: safe center; gap: 16px; padding: 40px 12%; }
+.auth-form { display: flex; flex-direction: column; justify-content: safe center; gap: 16px;
+  padding: max(40px, env(safe-area-inset-top)) max(12%, env(safe-area-inset-right))
+    max(40px, env(safe-area-inset-bottom)) max(12%, env(safe-area-inset-left)); }
 .auth-form h1 { font-size: var(--fs-hero); }
 .sub { color: var(--ink-soft); margin-top: -8px; }
 .btn.big { text-align: center; padding: 11px 0; font-size: var(--fs-read); }
 .to { font-size: var(--fs-base); color: var(--ink-soft); }
 .to a { color: var(--grass-deep); border-bottom: 1px dashed var(--grass); }
-@media (max-width: 760px) { .auth { grid-template-columns: 1fr; } .auth-art { display: none; } }
+@media (max-width: 760px) {
+  .auth { grid-template-columns: 1fr; }
+  .auth-art { display: none; }
+  .auth-form { justify-content: flex-start; gap: 15px;
+    padding: calc(34px + env(safe-area-inset-top)) max(24px, 8vw)
+      calc(30px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 480px) {
+  .auth-form { padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right)); }
+  .auth-form h1 { font-size: var(--fs-title); }
+  .btn.big { padding: 12px 0; }
+}
 </style>

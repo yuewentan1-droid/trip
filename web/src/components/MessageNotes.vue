@@ -206,11 +206,15 @@ async function reply(m) {
 .nr-acts .n-open { margin-right: 0; opacity: 1; }
 .notes.rows .n-empty { padding: 18px 0 12px; }
 /* 把信纸从篱笆上取下来，摊到眼前；话长纸就宽，长得过了头就在纸里挪 */
-.note-mask { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 24px;
+.note-mask { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center;
+  padding: calc(24px + env(safe-area-inset-top)) calc(24px + env(safe-area-inset-right))
+    calc(24px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
   background: rgba(63, 58, 47, .3); }
-.note-window { --w: 660px; --fs-xs: 17px; --fs-sm: 19px; --fs-md: 21px; --fs-base: 23px; --fs-read: 25px;
+.note-window { --w: 660px; --fs-xs: calc(17px * var(--ui-scale)); --fs-sm: calc(19px * var(--ui-scale));
+  --fs-md: calc(21px * var(--ui-scale)); --fs-base: calc(23px * var(--ui-scale)); --fs-read: calc(25px * var(--ui-scale));
   position: relative; display: flex; flex-direction: column; font-size: var(--fs-base);
-  width: min(var(--w), calc(100vw - 32px)); max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px);
+  width: min(var(--w), 100%);
+  max-height: calc(100dvh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   padding: 22px 26px 16px; background: var(--paper);
   border: 1.5px dashed rgba(150, 133, 100, .55);
   border-radius: 26px 14px 30px 12px / 14px 28px 12px 30px;
@@ -273,9 +277,10 @@ body[data-night="1"] .note-window { border-color: rgba(148, 160, 176, .24);
   .note-row { flex-wrap: wrap; }
   .nr-main { flex: 1 1 calc(100% - 40px); }
   .nr-acts { margin-left: auto; }
-  .note-mask { padding: 12px; }
-  .note-window { width: min(var(--w), calc(100vw - 24px));
-    max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); padding: 17px 16px 13px; }
+  .note-mask { padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
+    calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left)); }
+  .note-window { width: min(var(--w), 100%); padding: 17px 16px 13px;
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
   .nw-say { font-size: var(--fs-base); }
 }
 @media (max-width: 420px) {

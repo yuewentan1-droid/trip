@@ -6,6 +6,7 @@
   </Transition>
   <router-view />
   <Fireflies />
+  <FirstWalk />
   <PastureTip />
 </template>
 
@@ -15,6 +16,7 @@ import BoilFilter from './components/BoilFilter.vue';
 import MountainVeil from './components/MountainVeil.vue';
 import NightSky from './components/NightSky.vue';
 import Fireflies from './components/Fireflies.vue';
+import FirstWalk from './components/FirstWalk.vue';
 import PastureTip from './components/PastureTip.vue';
 import { usePen } from './store/pen';
 import { useNight } from './store/night';

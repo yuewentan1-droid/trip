@@ -75,11 +75,6 @@
     <VineScroll :el="mainBody"/>
     </div>
 
-    <!-- 翻页站在麦田前头，钉在窗口下沿，不跟着想法一起滚 -->
-    <footer v-if="pages > 1" class="foot">
-      <FieldPager :page="page" :pages="pages" big @go="page = $event"/>
-    </footer>
-
     <section class="r-pick" :class="{ picked: picked || held }" role="status">
       <Glyph name="leaf" :size="20"/>
       <div>
@@ -111,7 +106,6 @@ import BackVine from '../components/BackVine.vue';
 import MilestoneTimeline from '../components/MilestoneTimeline.vue';
 import FieldFold from '../components/FieldFold.vue';
 import VineScroll from '../components/VineScroll.vue';
-import FieldPager from '../components/FieldPager.vue';
 import PenText from '../components/PenText.vue';
 import Glyph from '../components/Glyph.vue';
 import PhotoViewer from '../components/PhotoViewer.vue';
@@ -176,17 +170,9 @@ const groups = computed(() => {
     .map(([level, list]) => ({ level, list: list.slice().sort((a, b) => b.id - a.id) }));
 });
 const matched = computed(() => groups.value.reduce((n, g) => n + g.list.length, 0));
-watch(q, () => (page.value = 1));
 
-// 一垅地一页摊四层，挖得比这更深才用得上翻页
-const PER = 4;
-const page = ref(1);
-const pages = computed(() => Math.max(1, Math.ceil(groups.value.length / PER)));
-watch(pages, p => (page.value = Math.min(page.value, p)));
-
-// 层标题和想法摊成一条流水，翻页时一起飘走
+// 压过的地层一层不藏，全摊在这条流水上
 const blocks = computed(() => groups.value
-  .slice((page.value - 1) * PER, page.value * PER)
   .flatMap(g => [{ k: 'h' + g.level, head: g.level }, ...g.list.map(t => ({ k: 't' + t.id, t }))]));
 
 // 一条想法先摊三行，多出来的折在纸下；点一下再全摊开
@@ -242,14 +228,15 @@ function copy() {
 
 <style scoped>
 .review { position: relative; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
-  padding-left: clamp(78px, 7.5vw, 118px);
-  --fs-xs: 15px; --fs-sm: 16px; --fs-md: 17px; --fs-base: 19px; --fs-read: 21px;
-  --fs-head: 24px; --fs-title: 27px; --fs-hero: 34px; font-size: var(--fs-base); }
+  padding-left: clamp(78px, 7.5vw, 118px); padding-bottom: env(safe-area-inset-bottom);
+  --fs-xs: calc(15px * var(--ui-scale)); --fs-sm: calc(16px * var(--ui-scale));
+  --fs-md: calc(17px * var(--ui-scale)); --fs-base: calc(19px * var(--ui-scale));
+  --fs-read: calc(21px * var(--ui-scale)); --fs-head: calc(24px * var(--ui-scale));
+  --fs-title: calc(27px * var(--ui-scale)); --fs-hero: calc(34px * var(--ui-scale)); font-size: var(--fs-base); }
 .review .top-nav { padding-left: 6px; }
 /* 回看也不套窄盒子：纸摊开多大就多大，字才不用挤成一团 */
 .main-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
 main { flex: 1; min-width: 0; min-height: 0; padding: 0 max(24px, 4vw) 18px max(0px, calc(max(24px, 4vw) - 30px)); }
-.foot { flex: none; padding: 6px max(24px, 4vw) 16px max(0px, calc(max(24px, 4vw) - 30px)); }
 .wheat { flex: none; }
 /* 题头和下面的两垅地用同一条边，顶上也钉住不跟着滚 */
 .r-head { flex: none; margin: 0 max(24px, 4vw) 22px max(0px, calc(max(24px, 4vw) - 30px)); padding: 20px 28px 22px; border-radius: var(--r-soft); }
@@ -268,7 +255,7 @@ main { flex: 1; min-width: 0; min-height: 0; padding: 0 max(24px, 4vw) 18px max(
 .r-find:focus-within { color: var(--grass-deep); border-bottom-color: rgba(79, 107, 58, .55); }
 .r-find i { font-style: normal; font-size: var(--fs-xs); color: var(--ink-faint); white-space: nowrap; }
 /* 往下翻过一阵，这片地才从田角探出来问一句：要不要收进自己的田里 */
-.r-pick { position: fixed; right: max(24px, 4vw); bottom: clamp(124px, 15vh, 154px); z-index: 50;
+.r-pick { position: fixed; right: max(24px, 4vw); bottom: calc(clamp(124px, 15vh, 154px) + env(safe-area-inset-bottom)); z-index: 50;
   width: max-content; max-width: calc(100vw - 48px); display: flex; align-items: center; gap: 12px;
   padding: 13px 16px 14px 18px;
   background: linear-gradient(0deg, rgba(126, 154, 95, .1), rgba(126, 154, 95, .1)), var(--card);
@@ -330,11 +317,9 @@ main { flex: 1; min-width: 0; min-height: 0; padding: 0 max(24px, 4vw) 18px max(
 .r-photo img { display: block; width: 100%; max-height: 104px; object-fit: cover;
   border-radius: var(--r-c); box-shadow: inset 0 0 0 1.1px rgba(150, 133, 100, .4); }
 
-/* 翻页：旧的那一页被风带走，新的那一页从土里冒出来 */
+/* 摊开这块地时，土层一层层从下往上落定 */
 .fall-enter-active { transition: opacity .55s ease-out, transform .55s cubic-bezier(.22, .8, .26, 1); }
-.fall-leave-active { transition: opacity .45s, transform .45s; position: absolute; left: 0; right: 0; }
 .fall-enter-from { opacity: 0; transform: translateY(18px); }
-.fall-leave-to { opacity: 0; transform: translateY(-13px) rotate(-1.4deg); }
 
 /* 窄到一句话放不下时，宁可折行也不让它探出纸外 */
 @media (max-width: 960px) {
@@ -348,17 +333,27 @@ main { flex: 1; min-width: 0; min-height: 0; padding: 0 max(24px, 4vw) 18px max(
   .r-row { max-width: 94%; }
 }
 @media (max-width: 720px) {
-  .review { padding-left: 60px; }
+  .review { padding-left: max(60px, env(safe-area-inset-left)); }
   .review .top-nav { padding-left: 0; }
+  main { padding-right: max(14px, env(safe-area-inset-right)); }
+  .r-head { margin: 0 max(14px, env(safe-area-inset-right)) 16px 0; padding: 14px 16px 16px; }
+  .r-q { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   /* 窄屏上照片别再跟字挤一条：字留在叶签旁边，照片落到纸角 */
   .r-row { display: grid; grid-template-columns: auto minmax(0, 1fr); row-gap: 7px; padding: 8px 14px 10px 16px; }
   .r-body { grid-column: 2; }
   .r-photo { grid-column: 1 / -1; justify-self: end; margin: 0; }
-  .r-pick { left: 72px; right: 14px; bottom: 102px; width: auto; flex-wrap: wrap; gap: 7px 9px;
-    padding: 11px 12px 12px 14px; }
+  .r-pick { left: 72px; right: 14px; bottom: calc(102px + env(safe-area-inset-bottom)); width: auto;
+    flex-wrap: wrap; gap: 7px 9px; padding: 11px 12px 12px 14px; }
   .r-pick > div { flex: 1 1 calc(100% - 34px); }
-  .r-pick b { font-size: 17px; }
-  .r-pick span { font-size: 17px; }
-  .r-pick button, .r-pick a { font-size: 19px; margin-left: 29px; }
+  .r-pick b { font-size: calc(17px * var(--ui-scale)); }
+  .r-pick span { font-size: calc(17px * var(--ui-scale)); }
+  .r-pick button, .r-pick a { font-size: calc(19px * var(--ui-scale)); margin-left: 29px; }
+}
+@media (max-width: 420px) {
+  .r-head { padding: 12px 13px 14px; }
+  .r-head h1 { font-size: var(--fs-head); }
+  .r-topic { font-size: var(--fs-base); flex-wrap: wrap; }
+  .r-row { max-width: 100%; margin-left: 0; }
+  .r-pick b, .r-pick span { font-size: calc(16px * var(--ui-scale)); }
 }
 </style>

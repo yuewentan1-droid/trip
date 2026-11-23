@@ -277,7 +277,8 @@ async function enter(k) {
 
 <style scoped>
 .f-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 26px; padding: 2px 0 14px; }
-.f-tabs button { display: inline-flex; align-items: center; gap: 6px; font-size: 25px; color: var(--ink-soft);
+.f-tabs button { display: inline-flex; align-items: center; gap: 6px; font-size: calc(25px * var(--ui-scale));
+  color: var(--ink-soft);
   letter-spacing: .06em; padding: 1px 2px 5px; transition: color .3s; }
 .f-tabs button.on { color: var(--wood); text-decoration: underline wavy rgba(139, 107, 74, .6) 1px;
   text-underline-offset: 6px; }

@@ -181,6 +181,9 @@ else
   echo "数据库已存在，跳过初始化（不会覆盖任何数据）"
 fi
 
+echo "补齐老库里后来加的列"
+mysql --default-character-set=utf8mb4 "$DB_NAME" < "$APP_DIR/server/sql/upgrade.sql"
+
 mysql <<SQL
 CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';
 ALTER USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';

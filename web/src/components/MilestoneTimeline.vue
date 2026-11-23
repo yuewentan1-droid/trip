@@ -4,18 +4,12 @@ import { dimOf } from '../constants/dimensions';
 import Glyph from './Glyph.vue';
 import Wavy from './Wavy.vue';
 import PenText from './PenText.vue';
-import FieldPager from './FieldPager.vue';
 
 const props = defineProps({ items: Array, delable: Boolean, peek: Boolean, big: Boolean, fold: { type: Number, default: 0 } });
 const emit = defineEmits(['del', 'open', 'close']);
 
-// 一页压五层，多出来的才翻页；新压上去的那层先露头
-const PER = 5;
-const page = ref(1);
+// 压过多少层就摊多少层，不藏在第二页
 const layers = computed(() => props.items);
-const pages = computed(() => Math.max(1, Math.ceil(layers.value.length / PER)));
-watch(pages, p => (page.value = Math.min(page.value, p)));
-const shown = computed(() => layers.value.slice((page.value - 1) * PER, page.value * PER));
 
 // 哪一层被扒开了：就地摊成一条田埂，不弹窗；一扒开就把中间的种子收回三十字
 const open = ref(null);
@@ -39,11 +33,6 @@ const toggle = m => {
   gleanOpen.value = [];
   emit('open', m);
 };
-watch(page, () => {
-  if (open.value) emit('close');
-  open.value = null;
-  gleanOpen.value = [];
-});
 watch(() => props.items, list => {
   if (open.value && !list.some(m => m.id === open.value)) {
     open.value = null;
@@ -93,7 +82,7 @@ const verge = m => Array.from({ length: 4 }, (_, i) => {
 <template>
   <div class="earth" :class="{ big, peek }">
     <TransitionGroup name="strata" tag="div" class="stack">
-      <div v-for="(m, i) in shown" :key="m.id" class="tier" :class="{ open: open === m.id }">
+      <div v-for="(m, i) in layers" :key="m.id" class="tier" :class="{ open: open === m.id }">
         <Wavy v-if="i" class="seam"/>
         <div class="layer rock">
           <svg class="rings" viewBox="0 0 44 44" aria-hidden="true">
@@ -141,8 +130,6 @@ const verge = m => Array.from({ length: 4 }, (_, i) => {
         </Transition>
       </div>
     </TransitionGroup>
-
-    <FieldPager :page="page" :pages="pages" @go="page = $event"/>
   </div>
 </template>
 
@@ -195,7 +182,7 @@ const verge = m => Array.from({ length: 4 }, (_, i) => {
 .glean .leaf { background: color-mix(in srgb, var(--c) 16%, transparent);
   box-shadow: inset 0 0 0 1.1px color-mix(in srgb, var(--c) 45%, transparent); }
 
-/* 翻页：旧的那层往下沉走，新的那层从底下顶上来 */
+/* 摊开时，土层一层层从底下顶上来 */
 .strata-enter-active, .strata-leave-active { transition: opacity .4s, transform .4s; }
 .strata-enter-from { opacity: 0; transform: translateY(13px); }
 .strata-leave-to { opacity: 0; transform: translateY(8px); }

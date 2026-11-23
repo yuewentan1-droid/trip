@@ -282,6 +282,10 @@ body[data-night="1"] .air-life { opacity: .34; filter: brightness(.68) saturate(
     display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: center; gap: 0 6px; }
   .ground-seed { position: static; transform: rotate(var(--rot)); }
   .ground-seed:hover { transform: rotate(0deg) translateY(-3px); }
-  .wind-seed { opacity: .92; z-index: 4; }
+  /* 手机屏放不下整片风：只留一小把，缩成花粉那么轻，落在字和树的后头 */
+  .wind-seed { opacity: .58; z-index: 1; }
+  .wind-seed:nth-of-type(n+25) { display: none; }
+  .wind-seed :deep(.gl) { --s: 20px !important; }
+  .wind-wisp, .wind-mate { display: none; }
 }
 </style>

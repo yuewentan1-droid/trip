@@ -83,16 +83,21 @@ const styleOf = f => ({
 </template>
 
 <style scoped>
-.pv-mask { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 3vh 3vw;
+.pv-mask { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center;
+  padding: calc(3vh + env(safe-area-inset-top)) calc(3vw + env(safe-area-inset-right))
+    calc(3vh + env(safe-area-inset-bottom)) calc(3vw + env(safe-area-inset-left));
   background: rgba(58, 52, 41, .46); }
 
 .pv-frame { position: relative; display: flex; flex-direction: column; align-items: center;
-  min-width: min(480px, 92vw); max-width: 94vw; max-height: 94vh; margin: 0; padding: 15px 15px 54px;
+  min-width: min(480px, 92vw); max-width: 94vw; margin: 0; padding: 15px 15px 54px;
+  max-height: calc(100dvh - 6vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   background: var(--paper); border: 1.5px dashed rgba(150, 133, 100, .55);
   border-radius: 30px 16px 32px 14px / 16px 30px 14px 32px;
   box-shadow: 0 22px 54px rgba(48, 43, 34, .26); transform: rotate(-.35deg); }
-.pv-shot { display: flex; max-width: min(86vw, 1180px); max-height: 76vh; }
-.pv-shot img { display: block; max-width: 100%; max-height: 76vh; width: auto; height: auto;
+.pv-shot { display: flex; max-width: min(86vw, 1180px);
+  max-height: min(76dvh, calc(100dvh - 6vh - 90px - env(safe-area-inset-top) - env(safe-area-inset-bottom))); }
+.pv-shot img { display: block; max-width: 100%; width: auto; height: auto;
+  max-height: min(76dvh, calc(100dvh - 6vh - 90px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
   object-fit: contain; border-radius: 14px 8px 16px 9px / 9px 15px 8px 14px;
   box-shadow: 0 0 0 1.2px rgba(150, 133, 100, .38), 0 8px 22px rgba(70, 61, 47, .12); }
 .pv-frame figcaption { position: absolute; left: 22px; bottom: 19px; z-index: 4; display: flex;
@@ -166,10 +171,13 @@ body[data-night="1"] .pv-vine, body[data-night="1"] .fence-vine, body[data-night
 body[data-night="1"] .pv-fence { opacity: .4; }
 
 @media (max-width: 620px) {
-  .pv-mask { padding: 12px; }
-  .pv-frame { max-width: 96vw; padding: 9px 9px 42px; }
-  .pv-shot { max-width: 92vw; max-height: 70vh; }
-  .pv-shot img { max-height: 70vh; }
+  .pv-mask { padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
+    calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left)); }
+  .pv-frame { width: 100%; max-width: 100%; padding: 9px 9px 42px;
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  .pv-shot { max-width: 100%;
+    max-height: min(70dvh, calc(100dvh - 104px - env(safe-area-inset-top) - env(safe-area-inset-bottom))); }
+  .pv-shot img { max-height: min(70dvh, calc(100dvh - 104px - env(safe-area-inset-top) - env(safe-area-inset-bottom))); }
   .pv-vine { width: 42px; }
   .pv-vine.v-left { left: -16px; }
   .pv-vine.v-right { right: -16px; }

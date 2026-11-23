@@ -19,6 +19,11 @@ export const useUser = defineStore('user', {
       localStorage.setItem('user', JSON.stringify(this.user));
       return this.user;
     },
+    doneTour() {
+      this.user = { ...this.user, tour_seen: 1 };
+      localStorage.setItem('user', JSON.stringify(this.user));
+      return api.doneTour();
+    },
     set(d) {
       this.token = d.token;
       this.user = d.user;
