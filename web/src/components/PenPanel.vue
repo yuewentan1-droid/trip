@@ -31,7 +31,7 @@ const emit = defineEmits(['close']);
       <div class="scale-row">
         <div class="scale-copy">
           <b>字号跟着窗口走</b>
-          <span>大屏不再放大，窄屏稍微收一点；手机上不变</span>
+          <span>大屏保持原样，窄屏和手机稍微收一点</span>
         </div>
         <button class="scale-switch" :class="{ on: scale.on }" role="switch" :aria-checked="scale.on"
           :aria-label="scale.on ? '关掉字号跟随窗口' : '打开字号跟随窗口'" @click="scale.toggle()">
