@@ -134,4 +134,9 @@ const flies = Array.from({ length: props.n > 12 ? 4 : 3 }, (_, i) => ({
 
 .frozen .stalk, .frozen .ear, .frozen .tuft, .frozen .bloom,
 .frozen .flit, .frozen .bfly { animation-play-state: paused; }
+
+/* 天黑：麦叶和花都沉下去，只剩风过时的轻轻一摆 */
+body[data-night="1"] .field { filter: brightness(.78) saturate(.62) hue-rotate(-4deg); }
+body[data-night="1"] .bloom { opacity: .72; }
+body[data-night="1"] .flit { opacity: .5; }
 </style>

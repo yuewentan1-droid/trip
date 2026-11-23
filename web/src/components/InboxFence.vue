@@ -2,7 +2,6 @@
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api';
-import { useField } from '../store/field';
 import { useNotice } from '../store/notice';
 import { toast } from '../utils/toast';
 import FenceDialog from './FenceDialog.vue';
@@ -18,40 +17,58 @@ const props = defineProps({
 const emit = defineEmits(['close']);
 
 const router = useRouter();
-const field = useField();
 const notice = useNotice();
 
 const tab = ref(props.tab);
 const noteScope = ref(props.scope);
 const notes = ref([]);
-const total = ref(0);
+const history = ref([]);
 const page = ref(1);
 const loading = ref(false);
 const incoming = ref([]);
 const opened = ref([]);
 const waiting = ref([]);
 const declined = ref([]);
-const deciding = ref(0);
-const picks = ref(new Set());
+const refusing = ref(0);
+const refuseWhy = ref('');
 const busy = ref(false);
-const PER = 4;
-const pages = computed(() => Math.max(1, Math.ceil(total.value / PER)));
+// 一页挂三条，翻页看后面的；回过的收到旧回音里，不再占着新话的位置
+const base = computed(() => noteScope.value === 'old' ? history.value : notes.value);
+const pages = computed(() => Math.max(1, Math.ceil(base.value.length / 3)));
+const pageNo = computed(() => Math.min(page.value, pages.value));
+const pageNotes = computed(() => base.value.slice((pageNo.value - 1) * 3, pageNo.value * 3));
+const knockItems = computed(() => [
+  ...incoming.value.map(k => ({ k, kind: 'in' })),
+  ...opened.value.map(k => ({ k, kind: 'open' })),
+  ...waiting.value.map(k => ({ k, kind: 'wait' })),
+  ...declined.value.map(k => ({ k, kind: 'no' }))
+]);
+// 门外的动静一页六条：后来的敲门和回音翻一页也够得着
+const KNOCK_PAGE = 6;
+const knockPage = ref(1);
+const knockPages = computed(() => Math.max(1, Math.ceil(knockItems.value.length / KNOCK_PAGE)));
+const shownKnocks = computed(() =>
+  knockItems.value.slice((knockPage.value - 1) * KNOCK_PAGE, knockPage.value * KNOCK_PAGE));
 const doorCount = computed(() => incoming.value.length + waiting.value.length + declined.value.length);
 const openedFresh = computed(() => opened.value.filter(k => !k.seen_by_visitor).length);
 
 const title = computed(() => tab.value === 'notes' ? '篱笆上的话' : '门外的动静');
-const note = computed(() => tab.value === 'notes'
-  ? noteScope.value === 'out'
+const note = computed(() => tab.value !== 'notes'
+  ? '有人敲门，也有人给你留了门'
+  : noteScope.value === 'out'
     ? '你留在别人篱笆上的话，回音也会落在这里'
-    : '风把话吹到篱笆上，回一句，别让它凉了'
-  : '有人敲门，也有人给你留了门');
+    : noteScope.value === 'old'
+      ? '回过的话风替你收着，想再看一眼就摊开'
+      : '风把话吹到篱笆上，回一句，别让它凉了');
 
 async function loadNotes() {
   loading.value = true;
   try {
-    const d = noteScope.value === 'out' ? await api.outbox(page.value) : await api.inbox(page.value);
-    notes.value = d.list;
-    total.value = d.total;
+    const d = noteScope.value === 'out' ? await api.outbox() : await api.inbox();
+    const list = d.list || [];
+    notes.value = noteScope.value === 'out' ? list : list.filter(m => !m.reply);
+    history.value = noteScope.value === 'out' ? [] : list.filter(m => m.reply);
+    page.value = 1;
   } finally {
     loading.value = false;
   }
@@ -60,13 +77,13 @@ async function loadNotes() {
 async function loadKnocks() {
   loading.value = true;
   try {
-    if (!field.ready) await field.refresh();
     const d = await api.knocks();
     incoming.value = d.incoming;
     opened.value = d.opened;
     waiting.value = d.waiting;
     declined.value = d.declined;
-    const fresh = d.opened.filter(k => !k.seen_by_visitor);
+    knockPage.value = 1;
+    const fresh = [...d.opened, ...d.declined].filter(k => !k.seen_by_visitor);
     if (fresh.length) {
       await Promise.all(fresh.map(k => api.seenKnock(k.id)));
       fresh.forEach(k => (k.seen_by_visitor = 1));
@@ -86,7 +103,6 @@ watch(() => props.open, on => {
   if (!on) return;
   tab.value = props.tab || 'notes';
   noteScope.value = props.scope || 'in';
-  page.value = 1;
   loadTab();
 });
 watch(() => props.tab, t => {
@@ -97,61 +113,67 @@ watch(() => props.tab, t => {
 watch(() => props.scope, s => {
   if (!props.open || tab.value !== 'notes') return;
   noteScope.value = s || 'in';
-  page.value = 1;
   loadNotes();
 });
 watch(tab, () => {
   if (!props.open) return;
-  page.value = 1;
   loadTab();
 });
+watch(noteScope, () => {
+  page.value = 1;
+});
 
-function setScope(scope) {
-  if (scope === noteScope.value) return;
+function showNotes(scope) {
+  if (tab.value === 'notes' && noteScope.value === scope) return;
+  const here = tab.value === 'notes';
   noteScope.value = scope;
   page.value = 1;
-  loadNotes();
+  if (here) loadNotes();
+  else tab.value = 'notes';
 }
-function goPage(p) {
-  page.value = p;
-  loadNotes();
+function showKnocks() {
+  if (tab.value !== 'knocks') tab.value = 'knocks';
 }
 async function erase(m) {
   await api.delMessage(m.id);
-  await loadNotes();
-  if (!notes.value.length && page.value > 1) {
-    page.value--;
-    await loadNotes();
-  }
+  notes.value = notes.value.filter(x => x.id !== m.id);
+  page.value = Math.min(page.value, pages.value);
+  notice.load();
 }
-function replied() {
+function replied(m) {
+  const i = notes.value.findIndex(x => x.id === m.id);
+  if (i > -1) history.value.unshift(notes.value.splice(i, 1)[0]);
+  page.value = Math.min(page.value, pages.value);
   notice.load();
 }
 function openGarden(k) {
   emit('close');
   router.push('/garden/' + k.garden_user_id);
 }
+// 上回没开，这回再敲一下；门里门外都留个印子，不能只是把人带到门口
+async function knockAgain(k) {
+  await api.knock(k.garden_user_id);
+  openGarden(k);
+}
 
-function begin(k) {
-  deciding.value = k.id;
-  picks.value = new Set(field.sessions.map(s => s.id));
+function refuse(k) {
+  if (refusing.value === k.id) return;
+  refusing.value = k.id;
+  refuseWhy.value = '';
 }
-function toggle(id) {
-  const next = new Set(picks.value);
-  next.has(id) ? next.delete(id) : next.add(id);
-  picks.value = next;
-}
-function all(on) {
-  picks.value = on ? new Set(field.sessions.map(s => s.id)) : new Set();
+function back() {
+  refusing.value = 0;
+  refuseWhy.value = '';
 }
 async function decide(k, open) {
-  if (open && !picks.value.size) return toast('总得开一块地给他看');
+  const reason = refuseWhy.value.trim();
+  if (!open && !reason) return toast('总得给门外留个理由');
   busy.value = true;
   try {
-    await api.decideKnock(k.id, { open, sessions: open ? [...picks.value] : [] });
+    await api.decideKnock(k.id, open ? { open: true } : { open: false, reason });
     incoming.value = incoming.value.filter(x => x.id !== k.id);
-    deciding.value = 0;
-    toast(open ? '门开了，他那边会收到' : '先没开，他那边会知道');
+    back();
+    toast(open ? '门开了，他那边会收到' : '门没开，理由递过去了');
     await notice.load();
   } finally {
     busy.value = false;
@@ -160,6 +182,7 @@ async function decide(k, open) {
 async function enter(k) {
   await api.seenKnock(k.id);
   k.seen_by_visitor = 1;
+  opened.value = opened.value.filter(x => x.id !== k.id);
   await notice.load();
   emit('close');
   router.push('/garden/' + k.garden_user_id);
@@ -169,102 +192,83 @@ async function enter(k) {
 <template>
   <FenceDialog :open="open" :title="title" :note="note" wide @close="$emit('close')">
     <nav class="f-tabs">
-      <button :class="{ on: tab === 'notes' }" @click="tab = 'notes'">
-        <Glyph name="leaf" :size="15"/> 留言
+      <button :class="{ on: tab === 'notes' && noteScope === 'in' }" @click="showNotes('in')">
+        <Glyph name="leaf" :size="17"/> 收到的
         <i v-if="notice.messages">{{ notice.messages }}</i>
       </button>
-      <button :class="{ on: tab === 'knocks' }" @click="tab = 'knocks'">
-        <Glyph name="home" :size="15"/> 敲门
+      <button :class="{ on: tab === 'notes' && noteScope === 'out' }" @click="showNotes('out')">
+        <Glyph name="pen" :size="17"/> 我留的
+        <i v-if="notice.sent">{{ notice.sent }}</i>
+      </button>
+      <button :class="{ on: tab === 'notes' && noteScope === 'old' }" @click="showNotes('old')">
+        <Glyph name="daisy" :size="17"/> 旧回音
+        <i v-if="notice.replied">{{ notice.replied }}</i>
+      </button>
+      <button :class="{ on: tab === 'knocks' }" @click="showKnocks">
+        <Glyph name="home" :size="17"/> 敲门
         <i v-if="doorCount + openedFresh">{{ doorCount + openedFresh }}</i>
       </button>
     </nav>
 
     <template v-if="tab === 'notes'">
-      <nav class="f-scope" aria-label="留言的方向">
-        <button :class="{ on: noteScope === 'in' }" @click="setScope('in')">
-          收到的 <i v-if="notice.messages">{{ notice.messages }}</i>
-        </button>
-        <button :class="{ on: noteScope === 'out' }" @click="setScope('out')">
-          我留的 <i v-if="notice.sent">{{ notice.sent }}</i>
-        </button>
-      </nav>
-      <MessageNotes :list="notes" :owner="noteScope === 'in'" :erase="noteScope === 'out'"
-        :empty="noteScope === 'out' ? '你还没在别人篱笆上留过话。' : ''"
+      <MessageNotes :list="pageNotes" :owner="noteScope !== 'out'" :can-reply="noteScope === 'in'"
+        :hist="noteScope === 'old'"
+        :erase="noteScope === 'out'" rows
+        :empty="noteScope === 'out' ? '你还没在别人篱笆上留过话。'
+          : noteScope === 'old' ? '还没有回过的话，旧回音里空着。' : ''"
         @erase="erase" @replied="replied"/>
-      <FieldPager v-if="pages > 1" :page="page" :pages="pages" @go="goPage"/>
+      <FieldPager v-if="pages > 1" :page="pageNo" :pages="pages" @go="page = $event"/>
     </template>
 
     <template v-else>
       <p v-if="loading" class="f-loading">风还在路上</p>
 
-      <section v-if="incoming.length" class="knock-block">
-        <h4><Glyph name="bell" :size="14"/> 有人敲你的门</h4>
-        <article v-for="k in incoming" :key="k.id" class="knock-row">
-          <span class="k-face">{{ (k.nickname || '田')[0] }}</span>
+      <section v-if="knockItems.length" class="knock-block">
+        <h4><Glyph name="bell" :size="14"/> 篱笆外的动静</h4>
+        <article v-for="it in shownKnocks" :key="it.kind + it.k.id" class="knock-row"
+          :class="{ opened: it.kind === 'open' }">
+          <span class="k-face">{{ (it.k.nickname || '田')[0] }}</span>
           <div class="k-say">
-            <b>{{ k.nickname }}</b> 想进来看看
-            <span>{{ (k.created_at || '').slice(5, 16) }}</span>
+            <b>{{ it.k.nickname }}</b>
+            <template v-if="it.kind === 'in'">
+              {{ it.k.times > 1 ? `敲了 ${it.k.times} 次门` : '想进来看看' }}
+              <span>{{ (it.k.created_at || '').slice(5, 16) }}</span>
+            </template>
+            <template v-else-if="it.kind === 'open'"> 开了 {{ it.k.plots }} 块地给你看
+              <span>{{ it.k.garden_name || '他的田' }}</span>
+            </template>
+            <template v-else-if="it.kind === 'wait'"> 的门还关着
+              <span>{{ it.k.garden_name || '他的田' }} · 等主人来看看</span>
+              <p v-if="it.k.prior_reason" class="k-why">上回没开：“{{ it.k.prior_reason }}”</p>
+            </template>
+            <template v-else> 这回没开
+              <span>{{ it.k.garden_name || '他的田' }}</span>
+              <p v-if="it.k.decline_reason" class="k-why">“{{ it.k.decline_reason }}”</p>
+            </template>
           </div>
-          <button v-if="deciding !== k.id" class="k-open" @click="begin(k)">开门</button>
-          <button v-else class="k-open" @click="deciding = 0">先合上</button>
 
-          <div v-if="deciding === k.id" class="k-pick">
-            <p class="k-h">开哪几块地给他看</p>
-            <div class="k-ways">
-              <button @click="all(true)">都开</button>
-              <button @click="all(false)">都不开</button>
+          <template v-if="it.kind === 'in'">
+            <button class="k-open" :disabled="busy" @click="decide(it.k, true)">通过</button>
+            <button class="k-no" :disabled="busy" @click="refuse(it.k)">不开</button>
+            <div v-if="refusing === it.k.id" class="k-refuse">
+              <input v-model="refuseWhy" maxlength="60" placeholder="这回不开，是因为…"
+                aria-label="不开门的理由" @keyup.enter="decide(it.k, false)"/>
+              <div class="k-acts">
+                <button class="k-no" :disabled="busy" @click="back">再想想</button>
+                <button class="k-yes" :disabled="busy || !refuseWhy.trim()" @click="decide(it.k, false)">
+                  把话递过去
+                </button>
+              </div>
             </div>
-            <div class="k-plots">
-              <button v-for="s in field.sessions" :key="s.id" class="plot"
-                :class="{ on: picks.has(s.id) }" @click="toggle(s.id)">
-                <Glyph :name="s.status === 'finished' ? 'leaf' : 'sprout'" :size="14"/>
-                <span>{{ s.title }}</span>
-                <i>第 {{ s.level }} 层</i>
-              </button>
-            </div>
-            <div class="k-acts">
-              <button class="k-no" :disabled="busy" @click="decide(k, false)">先不开</button>
-              <button class="k-yes" :disabled="busy || !picks.size" @click="decide(k, true)">
-                开 {{ picks.size }} 块地
-              </button>
-            </div>
-          </div>
+          </template>
+          <button v-else-if="it.kind === 'open'" class="k-open" @click="enter(it.k)">去看看</button>
+          <button v-else-if="it.kind === 'wait'" class="k-open" @click="openGarden(it.k)">去门口</button>
+          <button v-else class="k-open" @click="knockAgain(it.k)">再敲一次</button>
         </article>
+        <FieldPager v-if="knockPages > 1" :page="knockPage" :pages="knockPages" @go="knockPage = $event"/>
       </section>
 
-      <section v-if="opened.length" class="knock-block">
-        <h4><Glyph name="leaf" :size="14"/> 别人给你留的门</h4>
-        <article v-for="k in opened" :key="k.id" class="knock-row opened">
-          <span class="k-face">{{ (k.nickname || '田')[0] }}</span>
-          <div class="k-say">
-            <b>{{ k.nickname }}</b> 开了 {{ k.plots }} 块地给你看
-            <span>{{ k.garden_name || '他的田' }}</span>
-          </div>
-          <button class="k-open" @click="enter(k)">去看看</button>
-        </article>
-      </section>
-
-      <section v-if="waiting.length || declined.length" class="knock-block">
-        <h4><Glyph name="home" :size="14"/> 你敲过的门</h4>
-        <article v-for="k in waiting" :key="k.id" class="knock-row">
-          <span class="k-face">{{ (k.nickname || '田')[0] }}</span>
-          <div class="k-say">
-            <b>{{ k.nickname }}</b> 的门还关着
-            <span>{{ k.garden_name || '他的田' }} · 等主人来看看</span>
-          </div>
-          <button class="k-open" @click="openGarden(k)">去门口</button>
-        </article>
-        <article v-for="k in declined" :key="k.id" class="knock-row">
-          <span class="k-face">{{ (k.nickname || '田')[0] }}</span>
-          <div class="k-say">
-            <b>{{ k.nickname }}</b> 这回没开
-            <span>{{ k.garden_name || '他的田' }}</span>
-          </div>
-          <button class="k-open" @click="openGarden(k)">再敲一次</button>
-        </article>
-      </section>
-
-      <p v-if="!loading && !incoming.length && !opened.length && !waiting.length && !declined.length" class="f-empty">
+      <p v-if="!loading && !knockItems.length" class="f-empty">
         门外还没有动静。风过来的时候，篱笆会先知道。
       </p>
     </template>
@@ -272,22 +276,16 @@ async function enter(k) {
 </template>
 
 <style scoped>
-.f-tabs { display: flex; justify-content: center; gap: 26px; padding: 2px 0 14px; }
-.f-tabs button { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--ink-soft);
+.f-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 26px; padding: 2px 0 14px; }
+.f-tabs button { display: inline-flex; align-items: center; gap: 6px; font-size: 25px; color: var(--ink-soft);
   letter-spacing: .06em; padding: 1px 2px 5px; transition: color .3s; }
 .f-tabs button.on { color: var(--wood); text-decoration: underline wavy rgba(139, 107, 74, .6) 1px;
   text-underline-offset: 6px; }
-.f-tabs i { font-style: normal; font-size: 11px; color: var(--grass-deep); }
-.f-scope { display: flex; justify-content: center; gap: 22px; padding: 0 0 12px; }
-.f-scope button { font-size: 12px; color: var(--ink-faint); letter-spacing: .06em;
-  padding: 0 1px 3px; transition: color .3s; }
-.f-scope button.on { color: var(--wood); text-decoration: underline wavy rgba(139, 107, 74, .55) 1px;
-  text-underline-offset: 5px; }
-.f-scope i { font-style: normal; font-size: 10.5px; color: var(--grass-deep); }
-.f-loading, .f-empty { text-align: center; font-size: 13px; color: var(--ink-faint); letter-spacing: .06em;
+.f-tabs i { font-style: normal; font-size: var(--fs-xs); color: var(--grass-deep); }
+.f-loading, .f-empty { text-align: center; font-size: var(--fs-md); color: var(--ink-faint); letter-spacing: .06em;
   padding: 24px 0; }
 .knock-block { margin-bottom: 18px; }
-.knock-block h4 { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: normal;
+.knock-block h4 { display: flex; align-items: center; gap: 6px; font-size: var(--fs-md); font-weight: normal;
   color: var(--wood); letter-spacing: .08em; margin-bottom: 8px; padding-left: 2px; }
 .knock-row { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 9px 11px 10px;
   margin-bottom: 8px; background: var(--card); border: 1.1px dashed rgba(150, 133, 100, .38);
@@ -295,34 +293,31 @@ async function enter(k) {
 .knock-row.opened { background: rgba(126, 154, 95, .07); }
 .k-face { display: inline-grid; place-items: center; width: 25px; height: 26px; flex: none;
   border: 1.2px solid #C9B99A; border-radius: 47% 53% 50% 50% / 52% 48% 54% 46%;
-  font-size: 11px; color: var(--wood); }
-.k-say { flex: 1; min-width: 0; font-size: 13px; color: var(--ink); }
+  font-size: var(--fs-xs); color: var(--wood); }
+.k-say { flex: 1; min-width: 0; font-size: var(--fs-md); color: var(--ink); }
 .k-say b { font-weight: normal; color: var(--wood); }
-.k-say span { display: block; font-size: 11.5px; color: var(--ink-faint); }
-.k-open { font-size: 12.5px; color: var(--grass-deep); padding: 2px 10px 3px;
-  border-radius: var(--r-c); box-shadow: inset 0 0 0 1.2px rgba(79, 107, 58, .35); transition: .3s; }
+.k-say span { display: block; font-size: var(--fs-sm); color: var(--ink-faint); }
+.k-open, .k-no { font-size: var(--fs-md); padding: 2px 12px 3px; border-radius: var(--r-c); transition: .3s; }
+.k-open { color: var(--grass-deep); box-shadow: inset 0 0 0 1.2px rgba(79, 107, 58, .35); }
 .k-open:hover { background: rgba(79, 107, 58, .08); }
-.k-pick { flex: 0 0 100%; margin-top: 7px; padding-top: 8px; border-top: 1.1px dashed rgba(150, 133, 100, .35); }
-.k-h { font-size: 12px; color: var(--ink-soft); letter-spacing: .06em; }
-.k-ways { display: flex; gap: 14px; margin: 4px 0 8px; }
-.k-ways button { font-size: 11.5px; color: var(--ink-faint); text-decoration: underline wavy rgba(150, 133, 100, .4) 1px;
-  text-underline-offset: 3px; }
-.k-plots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; max-height: 210px;
-  overflow-y: auto; scrollbar-width: none; }
-.k-plots::-webkit-scrollbar { display: none; }
-.plot { display: flex; align-items: center; gap: 6px; min-width: 0; text-align: left; padding: 4px 7px 5px;
-  color: var(--ink-soft); border-radius: var(--r-c); box-shadow: inset 0 0 0 1px rgba(150, 133, 100, .26);
-  transition: color .3s, background .3s, box-shadow .3s; }
-.plot span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
-.plot i { margin-left: auto; flex: none; font-style: normal; font-size: 10.5px; color: var(--ink-faint); }
-.plot.on { color: var(--grass-deep); background: rgba(79, 107, 58, .09); box-shadow: inset 0 0 0 1.2px rgba(79, 107, 58, .4); }
+.k-no { color: var(--clay); box-shadow: inset 0 0 0 1.2px rgba(176, 122, 85, .4); }
+.k-no:hover { background: rgba(176, 122, 85, .08); }
+.k-open:disabled, .k-no:disabled { opacity: .35; cursor: default; }
 .k-acts { display: flex; justify-content: flex-end; gap: 14px; margin-top: 9px; }
-.k-no { font-size: 12px; color: var(--ink-faint); }
-.k-yes { font-size: 12.5px; color: var(--grass-deep);
-  text-decoration: underline wavy rgba(79, 107, 58, .45) 1px; text-underline-offset: 4px; }
-.k-yes:disabled { opacity: .35; cursor: default; text-decoration-color: transparent; }
+.k-yes { font-size: var(--fs-md); padding: 2px 12px 3px; border-radius: var(--r-c); color: var(--grass-deep);
+  box-shadow: inset 0 0 0 1.2px rgba(79, 107, 58, .35); transition: .3s; }
+.k-yes:hover:not(:disabled) { background: rgba(79, 107, 58, .08); }
+.k-yes:disabled { opacity: .35; cursor: default; }
+.k-refuse { flex: 0 0 100%; margin-top: 7px; padding-top: 8px; border-top: 1.1px dashed rgba(150, 133, 100, .35); }
+.k-refuse input { display: block; width: 100%; padding: 3px 2px 6px; font-size: calc(var(--fs-md) - 3px);
+  font-weight: 400; color: var(--ink); border-bottom: 1.2px dashed rgba(150, 133, 100, .45); }
+.k-refuse input:focus { outline: none; border-bottom-color: rgba(139, 107, 74, .7); }
+.k-refuse input::placeholder { font-style: italic; color: #B0A898; }
+.k-why { margin-top: 3px; font-size: var(--fs-md); line-height: 1.65; color: var(--wood); }
 @media (max-width: 520px) {
-  .k-plots { grid-template-columns: 1fr; }
   .f-tabs { gap: 18px; }
+  .knock-row { align-items: flex-start; }
+  .k-say { flex: 1 1 calc(100% - 34px); }
+  .knock-row > .k-open { margin-left: auto; }
 }
 </style>

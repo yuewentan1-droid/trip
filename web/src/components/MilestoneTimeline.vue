@@ -6,8 +6,8 @@ import Wavy from './Wavy.vue';
 import PenText from './PenText.vue';
 import FieldPager from './FieldPager.vue';
 
-const props = defineProps({ items: Array, delable: Boolean });
-const emit = defineEmits(['del']);
+const props = defineProps({ items: Array, delable: Boolean, peek: Boolean, big: Boolean, fold: { type: Number, default: 0 } });
+const emit = defineEmits(['del', 'open', 'close']);
 
 // 一页压五层，多出来的才翻页；新压上去的那层先露头
 const PER = 5;
@@ -17,10 +17,46 @@ const pages = computed(() => Math.max(1, Math.ceil(layers.value.length / PER)));
 watch(pages, p => (page.value = Math.min(page.value, p)));
 const shown = computed(() => layers.value.slice((page.value - 1) * PER, page.value * PER));
 
-// 哪一层被扒开了：就地摊成一条田埂，不弹窗
+// 哪一层被扒开了：就地摊成一条田埂，不弹窗；一扒开就把中间的种子收回三十字
 const open = ref(null);
-const toggle = m => (open.value = open.value === m.id ? null : m.id);
-watch(page, () => (open.value = null));
+const gleanOpen = ref([]);
+const gk = (m, k) => m.id + '-' + k;
+const unfolded = (m, k) => gleanOpen.value.includes(gk(m, k));
+const toggleGlean = (m, k) => {
+  const key = gk(m, k);
+  gleanOpen.value = unfolded(m, k)
+    ? gleanOpen.value.filter(x => x !== key)
+    : [...gleanOpen.value, key];
+};
+const toggle = m => {
+  if (open.value === m.id) {
+    open.value = null;
+    gleanOpen.value = [];
+    emit('close');
+    return;
+  }
+  open.value = m.id;
+  gleanOpen.value = [];
+  emit('open', m);
+};
+watch(page, () => {
+  if (open.value) emit('close');
+  open.value = null;
+  gleanOpen.value = [];
+});
+watch(() => props.items, list => {
+  if (open.value && !list.some(m => m.id === open.value)) {
+    open.value = null;
+    gleanOpen.value = [];
+    emit('close');
+  }
+});
+watch(() => props.fold, () => {
+  if (!open.value) return;
+  open.value = null;
+  gleanOpen.value = [];
+  emit('close');
+});
 
 const rings = id => Array.from({ length: 4 }, (_, r) => {
   const h = (parseInt(id, 10) * 97 + r * 31) % 100;
@@ -34,7 +70,17 @@ const scatter = t => {
 };
 
 // 五十个字一行，超过就换行；纸再窄，字也不挤成一团
-const line50 = s => [...String(s)].reduce((out, c, i) => out + c + ((i + 1) % 50 === 0 ? '\n' : ''), '');
+const lines50 = s => String(s).split('\n').flatMap(p => {
+  const chars = [...p];
+  return Array.from({ length: Math.max(1, Math.ceil(chars.length / 50)) },
+    (_, i) => chars.slice(i * 50, i * 50 + 50).join(''));
+});
+const long = t => [...t.content].length > 30;
+const peekText = (t, m, k) => {
+  if (!props.peek || unfolded(m, k)) return t.content;
+  const chars = [...t.content];
+  return chars.length > 30 ? chars.slice(0, 30).join('') + '…' : t.content;
+};
 
 // 埂上随手长出来的几棵：花、叶、芽，位置由层号定，不排队
 const SPRIG = ['leaf', 'sakura', 'sprout', 'daisy', 'blossom'];
@@ -45,9 +91,7 @@ const verge = m => Array.from({ length: 4 }, (_, i) => {
 </script>
 
 <template>
-  <div class="earth">
-    <p v-if="!layers.length" class="e-empty">往下每挖满一层，就能存一次档。存下的那一层会压在这里。</p>
-
+  <div class="earth" :class="{ big, peek }">
     <TransitionGroup name="strata" tag="div" class="stack">
       <div v-for="(m, i) in shown" :key="m.id" class="tier" :class="{ open: open === m.id }">
         <Wavy v-if="i" class="seam"/>
@@ -61,7 +105,7 @@ const verge = m => Array.from({ length: 4 }, (_, i) => {
             <span class="l-s">第 {{ m.level }} 层 · {{ (m.created_at || '').slice(5, 16) }}</span>
             <span v-if="m.note" class="l-n">“{{ m.note }}”</span>
           </button>
-          <button v-if="delable" class="l-x" title="抹掉这一层" @click.stop="emit('del', m)"><Glyph name="close" :size="14"/></button>
+          <button v-if="delable" class="l-x" title="抹掉这一层" @click.stop="emit('del', m)"><Glyph name="close" :size="big ? 28 : 14"/></button>
           <!-- 手放上去就先冒一道藤，告诉你这一层能扒开 -->
           <svg class="hint" viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true">
             <path d="M4 9 C 40 2, 70 12, 104 5 C 138 -1, 166 10, 196 4"/>
@@ -82,7 +126,15 @@ const verge = m => Array.from({ length: 4 }, (_, i) => {
               <p class="ridge-h">挖到第 {{ m.level }} 层时，手上摊着这些</p>
               <div v-for="(t, k) in m.snapshot.thoughts" :key="k" class="glean" :style="scatter(t)">
                 <span class="leaf">{{ t.dimension }}</span>
-                <PenText :text="line50(t.content)"/>
+                <span class="glean-text">
+                  <span v-for="(line, j) in lines50(peekText(t, m, k))" :key="j" class="glean-line">
+                    <PenText :text="line"/>
+                  </span>
+                  <button v-if="peek && long(t)" class="glean-more" type="button"
+                    :aria-expanded="unfolded(m, k)" @click.stop="toggleGlean(m, k)">
+                    <Glyph v-if="big" name="expand" :size="18"/>{{ unfolded(m, k) ? '收起来' : '摊开看' }}
+                  </button>
+                </span>
               </div>
             </div>
           </div>
@@ -96,20 +148,21 @@ const verge = m => Array.from({ length: 4 }, (_, i) => {
 
 <style scoped>
 .earth { position: relative; display: flex; flex-direction: column; }
-.e-empty { font-size: 13px; color: var(--ink-faint); padding: 4px 2px 4px 8px; line-height: 1.7; }
 
 .layer { position: relative; z-index: 1; display: flex; gap: 9px; align-items: flex-start;
   padding: 9px 9px 11px 7px; cursor: pointer; }
 .rings { position: relative; width: 38px; height: 38px; flex: none; margin-top: 3px; opacity: .55;
   transition: opacity .5s; }
+.big .rings { width: 48px; height: 48px; margin-top: 2px; }
+.big .l-x { padding: 4px 6px; }
 .rings ellipse { fill: none; stroke: var(--wood); stroke-width: 1.2; }
 .rings ellipse:first-child { fill: rgba(139, 107, 74, .2); stroke: none; }
 .tier.open .rings { opacity: .85; }
 .l-body { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; flex: 1;
   min-width: 0; transition: color .3s; }
-.l-t { font-size: 14px; line-height: 1.5; word-break: break-word; }
-.l-s { font-size: 11.5px; color: var(--ink-faint); }
-.l-n { font-size: 12.5px; color: var(--wood); }
+.l-t { font-size: var(--fs-base); line-height: 1.5; word-break: break-word; }
+.l-s { font-size: var(--fs-sm); color: var(--ink-faint); }
+.l-n { font-size: var(--fs-md); color: var(--wood); }
 .l-body:hover .l-t { color: var(--wood); }
 .l-x { position: relative; color: var(--ink-faint); line-height: 1; padding: 2px 4px; }
 .l-x:hover { color: var(--clay); }
@@ -128,11 +181,17 @@ const verge = m => Array.from({ length: 4 }, (_, i) => {
   opacity: .42; filter: url(#boil-soft); }
 .sprig { position: absolute; top: 1px; color: var(--grass-deep); opacity: .72; transform: rotate(var(--rot)); }
 .ridge-in { position: relative; display: flex; flex-direction: column; gap: 8px; }
-.ridge-h { font-size: 12px; color: var(--ink-faint); letter-spacing: .06em; padding-left: 3px; }
-.glean { display: flex; align-items: flex-start; gap: 9px; font-size: 14px; padding: 6px 12px 7px;
-  margin-left: var(--mx); width: max-content; max-width: 96%;
+.ridge-h { font-size: var(--fs-sm); color: var(--ink-faint); letter-spacing: .06em; padding-left: 3px; }
+.glean { display: flex; align-items: flex-start; gap: 9px; font-size: var(--fs-base); padding: 6px 12px 7px;
+  margin-left: var(--mx); width: fit-content; max-width: 96%;
   background: radial-gradient(100% 90% at 20% 16%, rgba(94, 83, 64, .045), transparent 62%), var(--card);
   border-radius: var(--r-a); transform: rotate(var(--rot)); }
+.glean-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.glean-line { display: block; }
+.glean-more { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; margin-top: 1px;
+  font-size: var(--fs-sm); color: var(--ink-faint); letter-spacing: .04em;
+  text-decoration: underline dashed rgba(139, 122, 92, .5) 1px; text-underline-offset: 3px; }
+.glean-more:hover { color: var(--wood); }
 .glean .leaf { background: color-mix(in srgb, var(--c) 16%, transparent);
   box-shadow: inset 0 0 0 1.1px color-mix(in srgb, var(--c) 45%, transparent); }
 

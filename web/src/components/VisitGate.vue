@@ -1,29 +1,9 @@
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { ref } from 'vue';
+import Glyph from './Glyph.vue';
 
 const emit = defineEmits(['go']);
-const seedOut = ref(0);
-const gust = ref(false);
 const leaving = ref(false);
-const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-let seedTimer, gustTimer, backTimer;
-
-// 每 18~26 秒被风带一下：绒球脱出去，两秒后新的从字底下升起来
-function blown() {
-  gust.value = true;
-  seedOut.value++;
-  gustTimer = setTimeout(() => (gust.value = false), 3500);
-  backTimer = setTimeout(() => (seedOut.value = 0), 2000);
-  seedTimer = setTimeout(blown, 18000 + Math.random() * 8000);
-}
-onMounted(() => {
-  if (!still) seedTimer = setTimeout(blown, 18000 + Math.random() * 8000);
-});
-onBeforeUnmount(() => {
-  clearTimeout(seedTimer);
-  clearTimeout(gustTimer);
-  clearTimeout(backTimer);
-});
 
 function go() {
   if (leaving.value) return;
@@ -33,121 +13,103 @@ function go() {
 </script>
 
 <template>
-  <a href="/visits" class="gate" :class="{ gust, leaving }" role="link"
+  <a href="/visits" class="signpost" :class="{ leaving }" role="link"
     aria-label="串门，看看别人公开的心田" @click.prevent="go">
-    <span class="ridge" aria-hidden="true">
-      <svg viewBox="0 0 88 20" fill="none">
-        <path class="ridge-line" d="M3 14 C 18 6.5, 38 4.6, 57 6.2 C 70 7.3, 81 10.4, 85 13.4"/>
-        <g class="blades left">
-          <path pathLength="1" d="M10 15 C 8.4 10, 7.6 7.4, 6.2 5"/>
-          <path pathLength="1" d="M13 15 C 13.2 10.2, 13.8 7.8, 15.2 4.8"/>
-          <path pathLength="1" d="M16 15 C 17.2 11.2, 19.4 9.2, 21.8 7.4"/>
-        </g>
-        <g class="blades right">
-          <path pathLength="1" d="M72 12.6 C 73.2 8.8, 74.8 6.6, 77 4.6"/>
-          <path pathLength="1" d="M75 13 C 77 10, 79.6 8.4, 82.6 7.2"/>
-          <path pathLength="1" d="M78 13.4 C 80 11.8, 82.2 10.8, 84.6 10.4"/>
-        </g>
-      </svg>
+    <span class="post" aria-hidden="true"/>
+    <span class="board" aria-hidden="true">
+      <span class="word">串门</span>
+      <Glyph name="right" :size="16"/>
+      <i class="nail n1"/><i class="nail n2"/>
     </span>
-
-    <span class="wind">
-      <span class="drift-x">
-        <span class="drift-y">
-          <span class="tremor">
-            <span class="tilt">
-              <span class="fluff" aria-hidden="true">
-                <svg viewBox="0 0 14 16" fill="none">
-                  <path d="M7 6.4 C 5.8 3.8, 3.4 2.6, 1.4 2.8 M7 6.4 C 7.2 3.4, 8.6 1.4, 10.6 1 M7 6.4 C 9.8 4.4, 12 4.4, 13 5.6
-                    M7 6.4 C 4.8 4.6, 2.8 4.8, 1.2 6 M7 6.4 C 9.4 6.4, 11.4 7.6, 12.4 9.2 M7 6.4 C 5.2 7.8, 4.4 9.6, 4.4 11.6"/>
-                  <circle cx="7" cy="6.6" r="1.1"/>
-                </svg>
-              </span>
-              <span class="word">串门</span>
-            </span>
-          </span>
-        </span>
-      </span>
-    </span>
-
-    <span v-if="seedOut" :key="seedOut" class="seed-fly" aria-hidden="true">
-      <svg viewBox="0 0 14 16" fill="none">
-        <path d="M7 6.4 C 5.8 3.8, 3.4 2.6, 1.4 2.8 M7 6.4 C 7.2 3.4, 8.6 1.4, 10.6 1 M7 6.4 C 9.8 4.4, 12 4.4, 13 5.6
-          M7 6.4 C 4.8 4.6, 2.8 4.8, 1.2 6 M7 6.4 C 9.4 6.4, 11.4 7.6, 12.4 9.2"/>
-        <circle cx="7" cy="6.6" r="1.1"/>
-      </svg>
-    </span>
-
+    <Glyph class="leaflet" name="leaf" :size="19" aria-hidden="true"/>
+    <Glyph class="sprout" name="sprout" :size="24" aria-hidden="true"/>
+    <Glyph class="rock" name="rock" :size="20" aria-hidden="true"/>
+    <i class="grass g1"/><i class="grass g2"/><i class="grass g3"/>
+    <span class="flutter"><Glyph name="butterfly" :size="23"/></span>
     <span class="hint">去看看别人种了什么</span>
   </a>
 </template>
 
 <style scoped>
-.gate { position: fixed; right: 6vw; top: 38%; z-index: 8; display: inline-block;
-  padding: 10px 14px 16px; color: #6B5B4A; transition: opacity .3s, transform .3s;
-  cursor: pointer; }
-.gate.leaving { opacity: 0; transform: translateY(-8px); }
-.wind, .drift-x, .drift-y, .tremor, .tilt { display: inline-block; }
-.drift-x { animation: gateX 11s ease-in-out infinite alternate; }
-.drift-y { animation: gateY 7.3s ease-in-out infinite alternate; }
-.tremor { animation: gateTremor 2.1s linear infinite alternate; }
-.tilt { animation: gateTilt 9.7s ease-in-out infinite alternate; }
-.wind { position: relative; }
-.word { display: inline-block; font-size: 17px; font-weight: 400; letter-spacing: 4px;
-  padding-left: 4px; transition: transform .2s, color .2s; }
-.fluff { position: absolute; left: 50%; top: -14px; width: 14px; height: 16px; margin-left: -7px;
-  opacity: .55; transition: opacity .4s; }
-.fluff svg, .seed-fly svg { width: 100%; height: 100%; overflow: visible; }
-.fluff path, .fluff circle, .seed-fly path, .seed-fly circle {
-  stroke: #8A7A66; stroke-width: 1.5; stroke-linecap: round; }
-.gust .fluff { opacity: 0; }
-.gust .wind { animation: gateGust 3.5s cubic-bezier(.4, 0, .2, 1); }
-.seed-fly { position: absolute; left: calc(50% - 7px); top: -14px; width: 14px; height: 16px;
-  animation: seedAway 2s ease-out forwards; pointer-events: none; }
+/* 田埂边插着一块指路的木牌：一根木桩，一块削成箭头的板，蝶绕着板梢转 */
+.signpost { position: fixed; right: 4.5vw; top: 59%; z-index: 8; display: block;
+  width: 200px; height: 172px; cursor: pointer; transition: opacity .3s, translate .3s; }
+.signpost.leaving { opacity: 0; translate: 0 -8px; }
+/* 桩脚底下洇开一点土影，牌子才是插在地里的，不是浮着的 */
+.signpost::after { content: ''; position: absolute; left: 16px; bottom: -3px; width: 62px; height: 9px;
+  border-radius: 50%; background: radial-gradient(closest-side, rgba(63, 48, 32, .18), transparent);
+  pointer-events: none; }
 
-.ridge { position: absolute; left: 50%; bottom: 0; width: 88px; height: 20px;
-  margin-left: -44px; opacity: .8; pointer-events: none; }
-.ridge svg { width: 100%; height: 100%; overflow: visible; }
-.ridge-line { stroke: #C9B99A; stroke-width: 1.5; stroke-linecap: round; }
-.blades path { stroke: #7E9A5F; stroke-width: 1.2; stroke-linecap: round;
-  stroke-dasharray: 1; stroke-dashoffset: 0; opacity: 0; }
-.gate:hover .blades path { animation: bladeIn .3s ease-out backwards; opacity: 1; }
-.gate:hover .blades path:nth-child(2) { animation-delay: .05s; }
-.gate:hover .blades path:nth-child(3) { animation-delay: .1s; }
-.gate:hover .word { color: #B85C38; transform: translateY(2px); }
-.hint { position: absolute; left: 50%; top: calc(100% + 6px); white-space: nowrap;
-  font-size: 12px; color: #8A7A66; letter-spacing: 1.5px; opacity: 0;
-  transform: translate(-50%, 6px); transition: opacity .25s, transform .25s; pointer-events: none; }
-.gate:hover .hint { opacity: 1; transform: translate(-50%, 0); }
+/* 桩子往土里斜插一点，木纹不齐，顶上削出个尖 */
+.post { position: absolute; left: 34px; bottom: 4px; width: 12px; height: 144px;
+  border-radius: 3px 2px 1px 2px; transform: rotate(1.6deg); transform-origin: 50% 100%;
+  background:
+    repeating-linear-gradient(88deg, transparent 0 4px, rgba(63, 48, 32, .13) 4px 5px, transparent 5px 12px),
+    linear-gradient(90deg, #6F543B, #A4845E 40%, #8F6E4A 70%, #634A33);
+  box-shadow: inset 1px 0 rgba(255, 253, 244, .22), inset -1px 0 rgba(63, 48, 32, .2),
+    1px 2px 4px rgba(63, 48, 32, .16); }
+.post::before { content: ''; position: absolute; left: 0; top: -8px; width: 12px; height: 10px;
+  background: linear-gradient(90deg, #6F543B, #A4845E 45%, #634A33);
+  clip-path: polygon(50% 0, 100% 55%, 90% 100%, 10% 100%, 0 55%); }
+.post::after { content: ''; position: absolute; left: 3px; top: 52px; width: 5px; height: 7px;
+  border-radius: 50% 44% 52% 46%; background: rgba(63, 48, 32, .26); }
 
-@keyframes gateX { from { transform: translateX(-14px); } to { transform: translateX(14px); } }
-@keyframes gateY { from { transform: translateY(-7px); } to { transform: translateY(7px); } }
-@keyframes gateTremor {
-  0% { transform: translate(-1.2px, .6px); } 25% { transform: translate(.8px, -1.2px); }
-  50% { transform: translate(1.2px, 1px); } 75% { transform: translate(-.6px, -.8px); }
-  100% { transform: translate(.4px, 1.2px); }
-}
-@keyframes gateTilt { from { transform: rotate(-2.5deg); } to { transform: rotate(2.5deg); } }
-@keyframes gateGust {
-  0%, 100% { transform: none; }
-  30%, 58% { transform: translate(22px, -22px); }
-}
-@keyframes seedAway {
-  0% { transform: translate(0, 0) rotate(0); opacity: .8; }
-  30% { opacity: .65; }
-  100% { transform: translate(34px, -46px) rotate(35deg); opacity: 0; }
-}
-@keyframes bladeIn { from { stroke-dashoffset: 1; opacity: 0; } to { stroke-dashoffset: 0; opacity: 1; } }
+/* 箭头牌朝右指，一头削尖；牌面两枚钉子钉在桩上 */
+.board { position: absolute; left: 20px; top: 28px; z-index: 2; display: inline-flex; align-items: center;
+  width: max-content; white-space: nowrap; gap: 9px; padding: 8px 34px 9px 30px;
+  color: #FBF7EE; background: #8B6B4A; transform: rotate(-2.4deg);
+  clip-path: polygon(0 8%, 84% 0, 100% 50%, 84% 100%, 0 92%);
+  filter: drop-shadow(0 5px 6px rgba(63, 48, 32, .16));
+  transition: background .35s, transform .35s; }
+.board::before { content: ''; position: absolute; inset: 0; opacity: .24;
+  background: repeating-linear-gradient(93deg, rgba(63, 48, 32, .36) 0 1px, transparent 1px 8px); }
+.word { position: relative; display: inline-block; font-size: calc(var(--fs-read) + 10px);
+  letter-spacing: 6px; padding-left: 3px; line-height: 1.3; }
+.board :deep(.gl) { position: relative; opacity: .78; }
+.nail { position: absolute; top: 50%; width: 3px; height: 3px; margin-top: -1.5px; border-radius: 50%;
+  background: rgba(63, 48, 32, .55); box-shadow: inset 0 .5px rgba(255, 253, 244, .25); }
+.n1 { left: 13px; }
+.n2 { left: 26px; }
+.signpost:hover .board { background: #957253; transform: rotate(-1.4deg); }
 
-@media (max-width: 767px) {
-  .gate { left: 20px; bottom: 96px; right: auto; top: auto; }
-  .drift-x { animation-name: gateXm; }
-  .drift-y { animation-name: gateYm; }
-}
-@keyframes gateXm { from { transform: translateX(-7px); } to { transform: translateX(7px); } }
-@keyframes gateYm { from { transform: translateY(-3.5px); } to { transform: translateY(3.5px); } }
+/* 板下露半片叶，桩脚一颗石、一株苗、几根草，像是从这片地里长出来的 */
+.leaflet { position: absolute; left: 5px; top: 68px; z-index: 1; color: var(--grass-deep);
+  opacity: .72; transform: rotate(-30deg); pointer-events: none; }
+.sprout { position: absolute; left: 52px; bottom: 2px; color: var(--grass-deep);
+  opacity: .8; transform: rotate(5deg); pointer-events: none; }
+.rock { position: absolute; left: 20px; bottom: 0; color: var(--ink-faint);
+  opacity: .62; transform: rotate(-8deg); pointer-events: none; }
+.grass { position: absolute; bottom: 2px; width: 2px; height: 15px; border-radius: 50% 50% 0 0;
+  background: var(--grass); opacity: .55; transform-origin: bottom; pointer-events: none; }
+.g1 { left: 44px; height: 13px; transform: rotate(-18deg); }
+.g2 { left: 58px; height: 17px; transform: rotate(9deg); opacity: .42; }
+.g3 { left: 70px; height: 12px; transform: rotate(20deg); opacity: .5; }
 
+/* 一只蝶绕着牌梢转，翅膀自己轻轻开合 */
+.flutter { position: absolute; left: 174px; top: 6px; z-index: 3; pointer-events: none; line-height: 0;
+  color: var(--clay); animation: signFly 13s ease-in-out infinite; }
+.flutter :deep(svg) { transform-box: fill-box; transform-origin: center;
+  animation: signWing .48s ease-in-out infinite alternate; }
+@keyframes signWing { from { transform: scaleX(1); } to { transform: scaleX(.68); } }
+@keyframes signFly {
+  0% { transform: translate(0, 0) rotate(-10deg); }
+  28% { transform: translate(-26px, -15px) rotate(12deg); }
+  55% { transform: translate(-44px, 5px) rotate(-7deg); }
+  80% { transform: translate(-14px, 18px) rotate(8deg); }
+  100% { transform: translate(0, 0) rotate(-10deg); }
+}
+
+.hint { position: absolute; left: 20px; top: calc(100% + 2px); white-space: nowrap;
+  font-size: var(--fs-base); color: var(--ink-soft); letter-spacing: 1.5px; opacity: 0;
+  transform: translateY(5px); transition: opacity .25s, transform .25s; pointer-events: none; }
+.signpost:hover .hint { opacity: 1; transform: translateY(0); }
+
+/* 窄屏不压在藤上：牌子和原野上下排开，纸页翻到头也总看得见 */
+@media (max-width: 1000px) {
+  .signpost { position: relative; top: auto; right: auto; zoom: .66; margin: 0 14px 8px auto; }
+  .hint { display: none; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .drift-x, .drift-y, .tremor, .tilt, .wind, .seed-fly { animation: none !important; }
+  .signpost, .board, .hint, .flutter, .flutter :deep(svg) { animation: none; transition: none; }
 }
 </style>

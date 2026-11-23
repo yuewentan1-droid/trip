@@ -5,24 +5,31 @@ import { api } from '../api';
 import { useUser } from '../store/user';
 import { useField } from '../store/field';
 import { useNotice } from '../store/notice';
+import { useNight } from '../store/night';
 import { toast } from '../utils/toast';
 import { SEED_CHOICES, ZONE_GLYPH, glyphOf } from '../icons';
 import { ask } from '../utils/ask';
+import { TREE_MAX, extraTrees, treeCap, treeForm, treeGroups, treeRoots, treeStyle } from '../utils/grove';
 import CloudLayer from '../components/CloudLayer.vue';
 import WheatField from '../components/WheatField.vue';
 import SoulTree from '../components/SoulTree.vue';
-import VisitGate from '../components/VisitGate.vue';
+import GroundWind from '../components/GroundWind.vue';
 import Drift from '../components/Drift.vue';
 import Toss from '../components/Toss.vue';
 import PenPanel from '../components/PenPanel.vue';
 import InboxFence from '../components/InboxFence.vue';
 import ProfileFence from '../components/ProfileFence.vue';
 import Glyph from '../components/Glyph.vue';
+import ModalSprig from '../components/ModalSprig.vue';
+import PlotSign from '../components/PlotSign.vue';
+import VineScroll from '../components/VineScroll.vue';
+import VisitGate from '../components/VisitGate.vue';
 
 const router = useRouter();
 const user = useUser();
 const field = useField();
 const notice = useNotice();
+const night = useNight();
 field.refresh();
 
 const inboxOpen = ref(false);
@@ -34,145 +41,207 @@ const openInbox = (tab, scope = 'in') => {
   inboxScope.value = scope;
   inboxOpen.value = true;
 };
-
 // 树开到花期，原野上才许落花；没开花就飘花瓣是假景
 const blooming = computed(() => field.sessions.length >= 16 || field.words > 3000);
 
-// 四个气候区收拢成四团，挤在中心那棵树的四角；tag 贴在各自聚落的边缘上方
-// 四团收拢在树的左右两侧，标签退到最外头，谁也不压着谁
-const ZONES = [
-  { key: '学科', tag: '学科 · 往天上蔓延', tx: 20, ty: 3, anchor: [33, 31] },
-  { key: '行业', tag: '行当 · 一层压一层', tx: 4.5, ty: 62, anchor: [31, 71] },
-  { key: '人群', tag: '人物 · 草地上路过', tx: 73, ty: 3, anchor: [75, 33] },
-  { key: '幻想', tag: '幻境 · 水里的倒影', tx: 95.5, ty: 62, anchor: [74, 73] }
-];
+// 一棵树挂满了就在旁边再冒一棵；五棵各有各的数，小院里最多五棵
+const extra = computed(() => extraTrees(user.user?.id, user.user?.extra_trees));
+const grove = computed(() => treeGroups(field.sessions
+  .filter(s => s.placement === 'tree' || !s.placement)
+  .slice().sort((a, b) => a.id - b.id), extra.value));
+// 地上有几条土埂就摆几条：新开的地还不算树，不能把种下的七十五棵都挤回一条根下
+const groundRoots = computed(() => {
+  const beds = field.sessions.reduce((m, s) =>
+    s.placement === 'ground' ? Math.max(m, (s.branch ?? 0) + 1) : m, 0);
+  return treeRoots(Math.max(grove.value.length, beds) || TREE_MAX, 'home');
+});
+
+// 类目横着挂在题头下面的一根野藤上，从左到右依次开花
+const VINE_LEFT = 3, VINE_WIDTH = 94, VINE_Y = 10.5, VINE_TOP = 48;
+// 撒种的时候还是按四个气候区归堆，只是不再各占一根藤
+const ZONES = [{ key: '学科' }, { key: '行业' }, { key: '人群' }, { key: '幻想' }];
+const ZONE_TONE = { 学科: 'var(--grass-deep)', 行业: 'var(--wood)', 人群: 'var(--clay)', 幻想: 'var(--lilac)' };
+// 藤上只长开源手绘库里的田园记号：叶子打底，花是偶尔开的
+const LEAF_TONE = {
+  leaf: 'var(--grass-deep)', sprout: 'var(--grass)',
+  blossom: 'var(--sakura)', sakura: 'var(--sakura)', daisy: 'var(--wheat)',
+  sunflower: 'var(--wheat)', tulip: 'var(--clay)', rose: 'var(--clay)', flower: 'var(--lilac)'
+};
+const VINE_LEAF = ['leaf', 'sprout', 'leaf', 'leaf', 'blossom', 'leaf', 'sprout', 'leaf',
+  'daisy', 'leaf', 'leaf', 'sakura', 'sprout', 'leaf', 'tulip', 'leaf', 'leaf', 'flower',
+  'leaf', 'rose', 'leaf', 'sunflower', 'leaf', 'sprout'];
+// 记号的颜色从土里长出来，不是统一的墨黑
+const TONES = ['var(--grass-deep)', 'var(--wood)', 'var(--grass)', 'var(--wheat)', 'var(--grass-deep)',
+  'var(--sky)', 'var(--clay)', 'var(--wood)', 'var(--grass)', 'var(--lilac)', 'var(--grass-deep)', 'var(--sakura)'];
 
 const hash = s => [...String(s)].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7);
-// 哈希是无符号 32 位，取位必须用 >>>，否则一半的数会变负、整块地飞出去。
-const seg = (h, s, n) => (h >>> s) % n;
 
-// 系统预置的十六块地：坐标手挑的，同一块地永远长在同一个位置
-const SPOTS = {
-  哲学: [7.5, 14], 心理学: [33, 7], 经济学: [5, 33], 生物学: [27, 24], 历史学: [14.5, 47],
-  互联网: [6.5, 59], 教育: [34, 66], 医疗: [12, 85], 农业: [37, 79],
-  学生: [66, 12], 社会人: [86, 10], 老人: [70, 34],
-  如果时间可以倒流: [65, 49], 一百年后的城市: [83, 55], 如果动物会说话: [67, 70], 平行世界的我: [84, 66]
-};
-// 自己撒的种子不排队：每个气候区给一块发散的地界，位置由名字自己推，
-// 推出来离邻居太近就换个角度再落一次，落在哪儿就一直在哪儿
-const PLOT = { 学科: [8, 36, 8, 46], 行业: [8, 36, 52, 84], 人群: [64, 92, 8, 46], 幻想: [64, 92, 48, 82] };
-const FAR = { x: 10.8, y: 8.4 };
-
-function scatter(z, t, taken) {
-  const h = hash(t.name);
-  const rot = seg(h, 15, 100) / 100 * 5.2 - 2.6;
-  const s = .86 + seg(h, 21, 100) / 100 * .24;
-  // 手机上化成一行行流式排布时，这几下抖动让它别站成一条直线
-  const jx = ((seg(h, 23, 13) - 6) * 1.2).toFixed(1) + 'px';
-  const jy = ((seg(h, 27, 9) - 4) * 1.5).toFixed(1) + 'px';
-  const ox = ((seg(h, 29, 13) - 6) * 1.1).toFixed(1) + 'px';
-  const oy = ((seg(h, 31, 9) - 4) * 1.3).toFixed(1) + 'px';
-  const at = SPOTS[t.name];
-  if (at) return { x: at[0], y: at[1], rot, s, jx, jy, ox, oy };
-  const [x0, x1, y0, y1] = PLOT[z.key];
-  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-  let x = cx, y = cy;
-  for (let k = 0; k < 48; k++) {
-    const a = ((seg(h, 3, 360) + k * 137.508) * Math.PI) / 180;
-    const r = .2 + ((seg(h, 11, 100) + k * 41) % 100) / 100 * .72;
-    x = cx + Math.cos(a) * (x1 - x0) / 2 * r;
-    y = cy + Math.sin(a) * (y1 - y0) / 2 * r;
-    if (taken.every(p => Math.abs(p[0] - x) > FAR.x || Math.abs(p[1] - y) > FAR.y)) break;
+// 一根横着的藤：起伏错开，没有哪一段是直的；整条比记号那排再高二十像素，细茎随之拉长
+const vineY = (x, seed) => 2
+  + Math.sin(x / 15.5 + seed * .63) * 11
+  + Math.sin(x / 7.2 + seed * 1.17) * 6.5
+  + Math.sin(x / 35 + seed * .31) * 3.4;
+// 采样点之间用 Catmull-Rom 收圆，手画的线才不会带棱角
+function curve(pts) {
+  let d = `M${pts[0][0]} ${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2[0]} ${p2[1].toFixed(1)}`;
   }
-  taken.push([x, y]);
-  return { x, y, rot, s, jx, jy, ox, oy };
+  return d;
 }
+function vinePath(seed) {
+  const pts = [];
+  for (let x = 0; x <= 100; x += 4) pts.push([x, vineY(x, seed)]);
+  return curve(pts);
+}
+// 第二股细藤绕在主藤上：一会儿翻过去，一会儿从底下钻出来
+function vineBraid(seed) {
+  const pts = [];
+  for (let x = 0; x <= 100; x += 3.2) {
+    pts.push([x, vineY(x, seed) + Math.sin(x / 4.2 + seed * 2.1) * 8.5]);
+  }
+  return curve(pts);
+}
+// 叶子一丛一丛地长：有的节点并两片，有的地方空着让藤露出来
+function vineSprigs(seed) {
+  const xs = [2, 9, 15, 22, 29, 37, 44, 50, 57, 64, 71, 78, 85, 91, 97];
+  return xs.flatMap((x, i) => {
+    const h = hash(seed + ':' + i);
+    if (h % 8 === 0) return [];
+    return Array.from({ length: h % 3 ? 1 : 2 }, (_, k) => {
+      const px = Math.max(1, Math.min(99, x + (h >>> (3 + k * 4)) % 9 - 4 + k * (2 + h % 3)));
+      const g = VINE_LEAF[(i * 5 + (h >>> 5) + k * 7) % VINE_LEAF.length];
+      const up = (h >>> k) % 2;
+      return {
+        x: px, top: vineY(px, seed) + (up ? -1 : 1) * (3 + (h >>> (k * 3)) % 6),
+        size: 29 + (h >>> (k * 4)) % 8,
+        rot: (h >>> (k * 5)) % 64 - 32, g, c: LEAF_TONE[g],
+        dur: 5 + (h >>> (k * 7)) % 5,
+        delay: -((h >>> (k * 3)) % 8)
+      };
+    });
+  });
+}
+// 藤梢探出去的卷须：三种绕法，风向哪边就歪哪边
+const TENDRILS = [
+  'M10 22 C 9 17, 13 14, 14 9 C 15 5, 10 2.6, 8 6 C 6 9.4, 9.6 12.4, 12.4 10',
+  'M10 22 C 12 17, 7 13, 9 8 C 10.6 4, 15 6, 14 10 C 13.2 13, 9.8 13.6, 8.4 11',
+  'M10 22 C 8 16, 15 15, 13 9 C 11.6 4.8, 6.8 6, 7.4 9.6 C 8 12.4, 10.8 12.8, 12 10.4'
+];
+function vineTendrils(seed) {
+  return [5, 19, 33, 47, 61, 75, 89, 98].map((x, i) => {
+    const h = hash(seed + '~:' + i);
+    return {
+      x: x + (h % 7) - 3, y: vineY(x, seed), down: !!(h % 2),
+      s: 28 + h % 10, rot: (h % 30) - 15, v: h % TENDRILS.length
+    };
+  });
+}
+// 藤上停着的蝶和虫：不按网格摆，各有各的落脚处
+const VINE_FLITS = [
+  { x: 15, y: 6, s: 26, rot: -12, dur: 23, delay: -6, c: 'var(--clay)', fx: 30, fy: -10 },
+  { x: 39, y: -14, s: 20, rot: 9, dur: 19, delay: -11, c: 'var(--wheat)', fx: -24, fy: -14 },
+  { x: 63, y: 22, s: 22, rot: 16, dur: 27, delay: -3, c: 'var(--wood)', fx: 18, fy: 9 },
+  { x: 87, y: -8, s: 18, rot: -6, dur: 31, delay: -9, c: 'var(--sakura)', fx: -16, fy: 8 }
+];
+// 主藤上再压二十股野藤：有的往上探头，有的垂到类目缝里，长短粗细都不齐
+const rnd = seed => {
+  let s = seed;
+  return () => (s = s * 16807 % 2147483647) / 2147483647;
+};
+function wildVines(seed) {
+  const ra = rnd(seed * 977 + 41);
+  return Array.from({ length: 20 }, (_, i) => {
+    const x0 = 3 + ra() * 94;
+    const base = 71 + vineY(x0, 23);
+    const up = ra() < .18;
+    const len = up ? 12 + ra() * 38 : 36 + ra() * 120;
+    const sway = up ? 3 + ra() * 7 : 2 + ra() * 5;
+    const dir = ra() < .5 ? 1 : -1;
+    const segs = 4 + Math.floor(ra() * 3);
+    const amp = 1 + ra() * 2.5;
+    const ph = ra() * Math.PI * 2, ph2 = ra() * Math.PI * 2;
+    const pts = [];
+    for (let k = 0; k <= segs; k++) {
+      const t = k / segs;
+      const x = x0 + dir * Math.sin(t * Math.PI * 1.3 + ph) * sway * (.2 + t * .9)
+        + Math.sin(t * Math.PI * 1.4 + i) * (ra() * 2 - 1) * t;
+      const y = base + (up ? -1 : 1) * len * Math.pow(t, .82)
+        + Math.sin(t * Math.PI * 2 + ph2) * amp * (up ? t : Math.sin(t * Math.PI));
+      pts.push([Math.max(-4, Math.min(104, x)), Math.max(6, Math.min(214, y))]);
+    }
+    return {
+      i, d: curve(pts), w: [0.9, 1.1, 1.4, 1.8, 2.3, 3][Math.floor(Math.pow(ra(), 1.4) * 6)],
+      c: ra() < .34 ? 'var(--grass-deep)' : 'var(--grass)',
+      o: .3 + ra() * .26, dur: 9 + ra() * 8, delay: -ra() * 9
+    };
+  });
+}
+const WILD_VINES = wildVines(53);
 
-const byZone = computed(() => ZONES.map(z => {
-  const all = field.topics.filter(t => t.category === z.key);
-  const taken = all.filter(t => SPOTS[t.name]).map(t => SPOTS[t.name]);
-  return { z, list: all.map(t => ({ t, z, ...scatter(z, t, taken) })) };
-}));
+const vine = computed(() => {
+  const all = field.topics;
+  if (!all.length) return null;
+  const icon = all.length > 18 ? 53 : 58;
+  const list = all.map((t, i) => {
+    const jitter = ((hash('x' + t.name + t.id) % 5) - 2) * .04;
+    const x = all.length === 1 ? 50 : Math.min(96, Math.max(4, 4 + i * 92 / (all.length - 1) + jitter));
+    const top = VINE_TOP + hash('h' + t.name + t.id) % 10;
+    return {
+      t, x, top,
+      rot: ((hash('r' + t.name) % 5) - 2) * .7,
+      s: .96 + (hash('s' + t.name) % 100) / 100 * .04,
+      stem: top - vineY(x, 23),
+      tone: TONES[hash('c' + t.name + t.id) % TONES.length],
+      align: x < 12 ? 'left' : x > 88 ? 'right' : 'center'
+    };
+  });
+  return {
+    y: VINE_Y, left: VINE_LEFT, width: VINE_WIDTH, list, icon,
+    path: vinePath(23), braid: vineBraid(23), sprigs: vineSprigs(23),
+    tendrils: vineTendrils(23), flits: VINE_FLITS
+  };
+});
+// 藤梢还要往上探二十来像素，整行再往下落，别让上面那句话压住藤
+const rowStyle = r => ({ left: r.left + '%', top: `calc(${r.y}% - 40px)`, width: r.width + '%' });
+// 窄屏把同一根藤竖起来：两股缠着往下走，记号左右交替挂在藤上
+const VINE_DOWN = 'M48 0 C 55 6, 41 12, 50 19 C 58 25, 42 31, 49 38 C 56 45, 43 50, 51 58 C 57 64, 44 70, 50 78 C 55 85, 44 92, 50 100';
+const VINE_BRAID_DOWN = 'M53 0 C 45 6, 60 12, 51 20 C 43 27, 59 33, 50 41 C 42 49, 57 55, 50 63 C 44 70, 58 76, 50 84 C 44 91, 55 96, 50 100';
+const MOBILE_LEAVES = ['leaf', 'sprout', 'blossom', 'leaf', 'sprout', 'leaf', 'sakura', 'leaf',
+  'daisy', 'leaf', 'sprout', 'tulip', 'leaf', 'flower', 'leaf', 'rose']
+  .map((g, i) => ({
+    g, y: 1.5 + i * 6.2, x: (i % 2 ? 56 : 44) + (hash('mx' + i) % 5) - 2,
+    s: 24 + hash('mv' + i) % 8, rot: (hash('mr' + i) % 50) - 25,
+    dur: 5 + hash('md' + i) % 5, delay: -(hash('ml' + i) % 8)
+  }));
+const MOBILE_FLITS = [
+  { x: 41, y: 17, s: 22, rot: -8, dur: 22, delay: -5, c: 'var(--clay)', fx: 16, fy: -12 },
+  { x: 59, y: 63, s: 18, rot: 10, dur: 26, delay: -13, c: 'var(--wheat)', fx: -12, fy: -9 }
+];
 
 const meadow = ref(null);
 const hover = ref(null);
-const vein = ref('');
 const at = el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
 
-// 藤蔓用像素坐标画，免得非等比缩放把虚线拉变形
-function enter(n) {
-  hover.value = n;
-  const r = meadow.value.getBoundingClientRect();
-  const x1 = n.x / 100 * r.width, y1 = n.y / 100 * r.height;
-  const x2 = n.z.anchor[0] / 100 * r.width, y2 = n.z.anchor[1] / 100 * r.height;
-  const mx = (x1 + x2) / 2 + (y1 - y2) * .2;
-  const my = (y1 + y2) / 2 - (x2 - x1) * .12;
-  vein.value = `M${x1} ${y1} Q${mx} ${my} ${x2} ${y2}`
-    + ` M${x1} ${y1} q ${-8 - (y1 - y2) * .06} 6 -14 2 M${x1} ${y1} q 9 7 15 3`;
-}
-function leave() {
-  hover.value = null;
-  vein.value = '';
-}
+const enter = n => (hover.value = n);
+const leave = () => (hover.value = null);
 
 // 枝头的叶和花就是一块块地：生长中的回地里接着挖，封存了的去回看
 const openPlot = s => router.push(s.status === 'running' ? '/think/' + s.id : '/review/' + s.id);
-
-// 封存时选了「种在地上」的，就在树根下排成一条，像沿着田埂点下去的一行豆
-const ground = computed(() => field.sessions.filter(s => s.placement === 'ground'));
-// 一条土带收在树根下，地多了才慢慢往两边铺，不一下子横满整个原野
-const bedW = computed(() => Math.min(900, 460 + Math.max(0, ground.value.length - 4) * 140));
-function groundStyle(s, i) {
-  const n = ground.value.length;
-  const step = n > 1 ? 84 / (n - 1) : 0;
-  const h = hash(s.id + s.title);
-  return {
-    left: (n > 1 ? 8 + i * step + (h >>> 19) % 18 / 10 - .9 : 50) + '%',
-    '--dy': ((h >>> 9) % 7) + 'px',
-    '--rot': ((h >>> 7) % 9 - 4) / 3 + 'deg'
-  };
-}
-// 落地的不一定都发芽：叶子、花瓣、小虫、路过的猫狗，都由这块地自己抽
-const GROUND_GLYPH = ['leaf', 'blossom', 'sakura', 'daisy', 'tulip', 'rose', 'fly', 'pawprint', 'rabbit', 'bird', 'plant'];
-const groundGlyph = s => GROUND_GLYPH[hash('g' + s.id + s.title) % GROUND_GLYPH.length];
-
-// 交给风的那些不排队：各飘各的，方向、高低、快慢都由名字自己定
-const WIND_GLYPH = ['leaf', 'blossom', 'sakura', 'daisy', 'fly', 'bird'];
-const windy = computed(() => field.sessions.filter(s => s.placement === 'wind').map(s => {
-  const h = hash('w' + s.id + s.title);
-  const k = h % 3;
-  return {
-    s,
-    glyph: WIND_GLYPH[(h >>> 5) % WIND_GLYPH.length],
-    left: 5 + (h >>> 4) % 90,
-    top: 7 + (h >>> 13) % 80,
-    rot: (h >>> 9) % 70 - 35,
-    size: 16 + (h >>> 17) % 12,
-    dx: 18 + (h >>> 19) % 42,
-    dy: 14 + (h >>> 23) % 36,
-    dur: [41, 53, 67][k] + (h >>> 26) % 9,
-    delay: -((h >>> 3) % 40)
-  };
-}));
-const windStyle = w => ({
-  left: w.left + '%', top: w.top + '%', '--rot': w.rot + 'deg',
-  '--dx': w.dx + 'px', '--dy': w.dy + 'px', '--dur': w.dur + 's', '--delay': w.delay + 's'
-});
 
 /* ——— 下种 ——— */
 const topicFor = ref(null);
 const sTitle = ref('');
 const sQuestion = ref('');
+// 类目名多长，纸就裁多宽；题头不折行
+const topicW = computed(() => Math.min(760, Math.max(540, 200 + [...(topicFor.value?.name || '')].length * 33)));
 const diving = ref(false);
 // 风从点下去的地方起：一把花和叶子被带走，散完了才翻纸
 const gust = ref(null);
 const showPen = ref(false);
-const leaving = ref(false);
-function toVisits() {
-  if (leaving.value) return;
-  leaving.value = true;
-  setTimeout(() => router.push('/visits'), 300);
-}
 
 function openStart(t) {
   topicFor.value = t;
@@ -222,7 +291,10 @@ function onFieldClick(e) {
 // 记号排成一小把撒在桌上的样子，不做整齐的图标面板
 const pickStyle = g => {
   const h = hash(g);
-  return { '--pdx': ((h >>> 3) % 9 - 4) * 1.7 + 'px', '--pdy': ((h >>> 7) % 7 - 3) * 1.6 + 'px', '--prot': ((h >>> 11) % 25 - 12) + 'deg' };
+  return {
+    '--pdx': ((h >>> 3) % 9 - 4) * 1.7 + 'px', '--pdy': ((h >>> 7) % 7 - 3) * 1.6 + 'px',
+    '--prot': ((h >>> 11) % 25 - 12) + 'deg', '--tone': TONES[(h >>> 15) % TONES.length]
+  };
 };
 // 刚撒下的那颗要指给用户看：滚到它跟前，脚边再洇开两圈水纹
 const justSown = ref(null);
@@ -230,6 +302,7 @@ async function addTopic() {
   const name = tName.value.trim();
   if (!name) return toast('名字总得起一个');
   if ([...name].length > 10) return toast('名字最多十个字');
+  if ([...tIntro.value.trim()].length > 30) return toast('一句话介绍最多三十个字');
   const t = await field.sow({ category: newFor.value, name, icon: tIcon.value, intro: tIntro.value, img: tImg.value });
   newFor.value = '';
   await nextTick();
@@ -238,15 +311,25 @@ async function addTopic() {
   setTimeout(() => (justSown.value = null), 3200);
   toast('种子撒下了');
 }
-// 自己的一张画，压过手绘的记号
+// 自己的一张画，压过手绘的记号；文件直接递，别先读进内存
+const IMG_MAX = 300 * 1024 * 1024;
+async function pickTopicPhoto() {
+  const yes = await ask({
+    title: '照片会公开', icon: 'image',
+    body: '这块地的照片会挂在主页上，别人能看、能下载，也可能被截图。存在被盗用或拿去商用的风险。愿意公开再传。',
+    ok: '愿意，挑一张', cancel: '先不传'
+  });
+  if (yes) picker.value.click();
+}
 async function attach(e) {
   const f = e.target.files[0];
-  const data = await new Promise(done => {
-    const fr = new FileReader();
-    fr.onload = () => done(fr.result);
-    fr.readAsDataURL(f);
-  });
-  tImg.value = (await api.upload(data)).url;
+  if (!f) return;
+  if (f.size > IMG_MAX) {
+    e.target.value = '';
+    return toast('照片不能超过 300M');
+  }
+  tImg.value = (await api.upload(f)).url;
+  e.target.value = '';
 }
 async function delTopic(t) {
   const gone = await ask({
@@ -265,37 +348,58 @@ async function uprootHere() {
   await delTopic(t);
 }
 
+// 去串门：整页轻轻抬一下，像人抬起头往远处看
+const leaving = ref(false);
+function toVisits() {
+  if (leaving.value) return;
+  leaving.value = true;
+  setTimeout(() => router.push('/visits'), 300);
+}
+
 function quit() {
   user.logout();
   router.push('/login');
 }
 
 // 篱笆上有话就飘来一张纸，没话就只让风过去
-onMounted(() => notice.load());
+onMounted(() => {
+  notice.load();
+  user.load();
+});
 </script>
 
 <template>
   <div class="home" :class="{ diving, leaving }">
     <header class="top-nav">
-      <div class="logo"><Glyph name="sprout" :size="23"/> 一亩心田</div>
       <nav>
-        <button class="nav-link" title="笔风" @click="showPen = true"><Glyph name="pen" :size="17"/> 笔风</button>
-        <button class="nav-link" @click="router.push('/mine')"><Glyph name="map" :size="18"/> 我的田地</button>
-        <span class="avatar-wrap">
-          <button class="avatar" title="改名字、换把钥匙" @click="profileOpen = true">
-            {{ (user.user?.nickname || '田')[0] }}
+        <button class="nav-link night-link" :title="night.on ? '把天叫亮' : '把天关暗'"
+          @click="night.toggle()">
+          <Glyph :name="night.on ? 'sun' : 'moon'" :size="16"/> {{ night.on ? '天亮' : '天黑' }}
+        </button>
+        <button class="nav-link" title="笔风" @click="showPen = true">笔风</button>
+        <button class="nav-link" @click="router.push('/mine')">我的田地</button>
+        <router-link v-if="user.user?.id" class="nav-link" title="小院里的花草都记得你"
+          :to="'/garden/' + user.user.id">回我的小院</router-link>
+        <span v-if="notice.words || notice.doors || notice.approvals || notice.declined" class="notice-line">
+          <button v-if="notice.words" @click="openInbox('notes')">
+            篱上 {{ notice.words }} 句
           </button>
-          <button v-if="notice.words" class="leaf-msg" :title="`篱笆上有 ${notice.words} 句话`"
-            @click="openInbox('notes', notice.messages ? 'in' : 'out')">
-            <Glyph name="leaf" :size="18"/>
-            <b>{{ notice.words }}</b>
+          <i v-if="notice.words && (notice.doors || notice.approvals || notice.declined)">·</i>
+          <button v-if="notice.doors" @click="openInbox('knocks')">
+            门外 {{ notice.doors }} 处
           </button>
-          <button v-if="notice.doors" class="door-msg" :title="`门外有 ${notice.doors} 处动静`"
-            @click="openInbox('knocks')">
-            <Glyph name="bell" :size="12"/>
-            <b>{{ notice.doors }}</b>
+          <i v-if="notice.doors && (notice.approvals || notice.declined)">·</i>
+          <button v-if="notice.approvals" title="有人给你开了门" @click="openInbox('knocks')">
+            门开了 {{ notice.approvals }} 处
+          </button>
+          <i v-if="notice.approvals && notice.declined">·</i>
+          <button v-if="notice.declined" title="门那边递来一句话" @click="openInbox('knocks')">
+            门外回音 {{ notice.declined }} 句
           </button>
         </span>
+        <button class="avatar" title="改名字、换把钥匙" @click="profileOpen = true">
+          {{ (user.user?.nickname || '田')[0] }}
+        </button>
         <button class="nav-link quiet" @click="quit">退出</button>
       </nav>
     </header>
@@ -306,32 +410,14 @@ onMounted(() => notice.load());
       <p>挑一块地，换个角度往下挖。没人催你，想挖多深挖多深。</p>
     </section>
 
+    <div class="meadow-wrap">
     <main ref="meadow" class="meadow roll" @click.self="onFieldClick">
       <div v-if="!field.ready" class="loading">土还在翻</div>
 
-      <SoulTree class="tree" :sessions="field.sessions" @open="openPlot"/>
-      <Transition name="note">
-        <button v-if="notice.drift" class="drift-note"
-          @click.stop="openInbox('notes', notice.drift.kind === 'in' ? 'in' : 'out')">
-          <span class="paper-in">
-            <em><Glyph :name="notice.drift.kind === 'reply' ? 'chat' : notice.drift.kind === 'sent' ? 'pen' : 'leaf'"
-              :size="13"/>
-              {{ notice.drift.kind === 'in' ? '篱笆上飘来一句'
-                : notice.drift.kind === 'reply' ? '篱笆那头回你了' : '你留在篱笆上的话' }}</em>
-            <span v-if="notice.drift.kind === 'reply'" class="line">
-              <b>{{ notice.drift.nickname }}</b> 在「{{ notice.drift.garden_name }}」回：{{ notice.drift.reply }}
-            </span>
-            <span v-else-if="notice.drift.kind === 'sent'" class="line">
-              <b>{{ notice.drift.garden_name }}</b>：{{ notice.drift.content }}
-            </span>
-            <span v-else class="line"><b>{{ notice.drift.nickname }}</b>「{{ notice.drift.content }}」</span>
-            <span class="more">
-              {{ notice.drift.kind === 'in' ? `${notice.messages} 句话 · 点开看看`
-                : notice.drift.kind === 'reply' ? '点开看看回音' : '等回音 · 点开看看' }}
-            </span>
-          </span>
-        </button>
-      </Transition>
+      <SoulTree v-for="(tree, i) in grove" :key="'tree' + i" class="tree" :class="'tree-' + i"
+        :style="treeStyle(i, 'home', tree.length, treeCap(i))" :sessions="tree" :cap="treeCap(i)"
+        :variant="treeForm(user.user?.id, i)"
+        :seed="(user.user?.id || 0) * 37 + i * 101" @open="openPlot"/>
       <div v-if="blooming" class="shed"><Drift/></div>
 
       <svg class="art strata" viewBox="0 0 100 60" preserveAspectRatio="none">
@@ -341,63 +427,82 @@ onMounted(() => notice.load());
         <path v-for="i in 4" :key="i" :d="`M${4 + i * 3} ${i * 7} C 26 ${i * 7 - 3}, 48 ${i * 7 + 3}, 70 ${i * 7 - 1} C 82 ${i * 7 - 2}, 90 ${i * 7 + 1}, 96 ${i * 7}`"/>
       </svg>
 
-      <svg class="veins">
-        <path v-if="vein" :key="hover?.t.id" :d="vein" fill="none"/>
-      </svg>
-
-      <template v-for="g in byZone" :key="g.z.key">
-        <span class="zone-tag" :style="{ top: g.z.ty + '%', left: g.z.tx + '%' }">
-          <Glyph :name="ZONE_GLYPH[g.z.key]" :size="16"/> {{ g.z.tag }}
-        </span>
-
-        <button v-for="n in g.list" :key="n.t.id" class="node" :data-id="n.t.id"
-          :class="{ on: hover?.t.id === n.t.id, fresh: justSown === n.t.id }"
-          :style="{ left: n.x + '%', top: n.y + '%', '--rot': n.rot + 'deg', '--sc': n.s, '--jx': n.jx, '--jy': n.jy, '--ox': n.ox, '--oy': n.oy }"
-          @mouseenter="enter(n)" @mouseleave="leave" @click.stop="openStart(n.t)">
-          <i v-if="hover?.t.id === n.t.id" class="rip r1"/><i v-if="hover?.t.id === n.t.id" class="rip r2"/>
-          <img v-if="n.t.img" class="n-img" :src="n.t.img" alt=""/>
-          <Glyph v-else class="n-icon" :name="glyphOf(n.t)" :size="30"/>
-          <span class="n-name">{{ n.t.name }}</span>
-          <span v-if="n.t.intro" class="n-intro">{{ n.t.intro }}</span>
-        </button>
-      </template>
-
-      <!-- 种在地上的那些地，沿着树根下排成一条，落地就变成叶子、花瓣或小虫 -->
-      <div class="ground-bed" :style="{ '--bed-w': bedW + 'px' }">
-        <button v-for="(s, i) in ground" :key="'g' + s.id" class="ground-seed"
-          :style="groundStyle(s, i)" @click.stop="openPlot(s)">
-          <Glyph :name="groundGlyph(s)" :size="22"/>
-          <span>{{ s.title }}</span>
-        </button>
+      <div v-if="vine" class="vine-field">
+        <div class="vine-row" :class="{ lit: hover }" :style="rowStyle(vine)">
+          <svg class="vine-wild" viewBox="0 0 100 220" preserveAspectRatio="none" aria-hidden="true">
+            <path v-for="w in WILD_VINES" :key="w.i" :d="w.d"
+              :style="{ strokeWidth: w.w, stroke: w.c, opacity: w.o,
+                animationDuration: w.dur + 's', animationDelay: w.delay + 's' }"/>
+          </svg>
+          <svg class="vine-ink" viewBox="0 0 100 78" preserveAspectRatio="none" aria-hidden="true">
+            <path class="vine-line" :d="vine.path"/>
+            <path class="vine-braid" :d="vine.braid"/>
+          </svg>
+          <svg class="vine-down" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <path :d="VINE_DOWN"/>
+            <path class="vine-braid-down" :d="VINE_BRAID_DOWN"/>
+          </svg>
+          <svg v-for="(c, k) in vine.tendrils" :key="'t' + k" class="vine-tendril" :class="{ down: c.down }"
+            viewBox="0 0 20 22" aria-hidden="true"
+            :style="{ left: c.x + '%', top: c.y + 'px', '--ts': c.s + 'px', '--rot': c.rot + 'deg' }">
+            <path :d="TENDRILS[c.v]"/>
+          </svg>
+          <Glyph v-for="(sp, k) in vine.sprigs" :key="k" class="vine-sprig" :name="sp.g" :size="sp.size"
+            :style="{ left: sp.x + '%', top: sp.top + 'px', color: sp.c, '--rot': sp.rot + 'deg',
+              '--dur': sp.dur + 's', '--delay': sp.delay + 's' }"/>
+          <Glyph v-for="(sp, k) in MOBILE_LEAVES" :key="'m' + k" class="vm-leaf" :name="sp.g" :size="sp.s"
+            :style="{ left: sp.x + '%', top: sp.y + '%', color: LEAF_TONE[sp.g], '--rot': sp.rot + 'deg',
+              '--dur': sp.dur + 's', '--delay': sp.delay + 's' }"/>
+          <Glyph v-for="(f, k) in vine.flits" :key="'f' + k" class="vine-flit" name="fly" :size="f.s"
+            :style="{ left: f.x + '%', top: f.y + 'px', color: f.c, '--rot': f.rot + 'deg',
+              '--fx': f.fx + 'px', '--fy': f.fy + 'px', '--dur': f.dur + 's', '--delay': f.delay + 's' }"/>
+          <Glyph v-for="(f, k) in MOBILE_FLITS" :key="'mf' + k" class="vm-flit" name="fly" :size="f.s"
+            :style="{ left: f.x + '%', top: f.y + '%', color: f.c, '--rot': f.rot + 'deg',
+              '--fx': f.fx + 'px', '--fy': f.fy + 'px', '--dur': f.dur + 's', '--delay': f.delay + 's' }"/>
+          <button v-for="(n, k) in vine.list" :key="n.t.id" class="node" :data-id="n.t.id"
+            :class="{ on: hover?.t.id === n.t.id, fresh: justSown === n.t.id, right: k % 2 }"
+            :style="{ left: n.x + '%', top: n.top + 'px', '--rot': n.rot + 'deg', '--sc': n.s,
+              '--icon': vine.icon + 'px', '--tone': n.tone }"
+            :aria-label="n.t.name" @mouseenter="enter(n)" @focus="enter(n)"
+            @mouseleave="leave" @blur="leave" @click.stop="openStart(n.t)">
+            <svg class="stem" :style="{ height: `calc(${n.stem}px / var(--fit, 1))` }" viewBox="0 0 8 40" preserveAspectRatio="none" aria-hidden="true">
+              <path d="M4 40 C 2.6 27, 5.4 13, 4 0"/>
+              <circle cx="4" cy="1" r="1.5" fill="currentColor" opacity=".7"/>
+            </svg>
+            <i v-if="hover?.t.id === n.t.id" class="rip r1"/><i v-if="hover?.t.id === n.t.id" class="rip r2"/>
+            <img v-if="n.t.img" class="n-img" :src="n.t.img" alt=""/>
+            <Glyph v-else class="n-icon" :name="glyphOf(n.t)" :size="vine.icon"/>
+            <PlotSign class="node-sign" :text="n.t.name" :align="n.align"/>
+          </button>
+        </div>
       </div>
 
-      <!-- 交给风的那些：没有落点，慢慢飘，风往哪边就偏一点 -->
-      <button v-for="w in windy" :key="'w' + w.s.id" class="wind-seed" :style="windStyle(w)"
-        :title="w.s.title" @click.stop="openPlot(w.s)">
-        <Glyph :name="w.glyph" :size="w.size"/>
-        <span>{{ w.s.title }}</span>
-      </button>
+      <!-- 种在地上的和交给风的那些，和别人的院子里共用同一套生长 -->
+      <GroundWind :sessions="field.sessions" :roots="groundRoots" @open="openPlot"/>
 
-      <button class="mist" @click.stop="openSeed(null, { x: 48, y: 63 })">
-        <Glyph name="flower" :size="20"/>
+      <button v-if="!blooming" class="mist" @click.stop="openSeed(null, { x: 48, y: 63 })">
+        <Glyph name="flower" :size="22"/>
         <span>这片迷雾还没人开过，<br/>点一下撒颗自己的种子</span>
       </button>
 
       <WheatField class="h-wheat"/>
     </main>
+    <VineScroll :el="meadow"/>
+    </div>
 
     <VisitGate @go="toVisits"/>
 
     <div v-if="topicFor" class="mask" @click.self="topicFor = null">
-      <div class="modal">
-        <h3 class="m-h"><Glyph :name="glyphOf(topicFor)" :size="22"/> 在「{{ topicFor.name }}」这块地下个种</h3>
+      <div class="modal topic-modal" :style="{ width: topicW + 'px' }">
+        <ModalSprig/>
+        <h3 class="m-h"><Glyph :name="glyphOf(topicFor)" :size="27"/> 在「{{ topicFor.name }}」这块地下个种</h3>
         <div class="f-item">
-          <label>给这次思考起个题（十个字以内）</label>
-          <input v-model="sTitle" maxlength="10" placeholder="比如：我为什么害怕开始"/>
+          <label>给这次思考起个题</label>
+          <input v-model="sTitle" placeholder="比如：我为什么害怕开始"/>
         </div>
         <div class="f-item">
-          <label>最想问自己的那句话（可以先空着，五百字以内）</label>
-          <textarea v-model="sQuestion" rows="2" maxlength="500"/>
+          <label>最想问自己的那句话（可以先空着，三十字以内）</label>
+          <textarea v-model="sQuestion" rows="2" maxlength="30"/>
         </div>
         <div class="m-acts">
           <button v-if="topicFor.user_id" class="btn-ghost uproot" @click="uprootHere">
@@ -410,37 +515,40 @@ onMounted(() => notice.load());
     </div>
 
     <div v-if="newFor" class="mask" @click.self="newFor = ''">
-      <div class="modal">
-        <h3 class="m-h">自己开一块地</h3>
+      <div class="modal seed-modal">
+        <ModalSprig/>
+        <h3 class="m-h"><Glyph name="flower" :size="30"/> 自己开一块地</h3>
         <div class="f-item">
           <label>长在哪个气候区</label>
           <div class="zone-pick">
-            <button v-for="z in ZONES" :key="z.key" :class="{ on: newFor === z.key }" @click="newFor = z.key; tIcon = ZONE_GLYPH[z.key]; tImg = ''">
-              <Glyph :name="ZONE_GLYPH[z.key]" :size="16"/> {{ z.key }}
+            <button v-for="z in ZONES" :key="z.key" :class="{ on: newFor === z.key }"
+              :style="{ '--tone': ZONE_TONE[z.key] }"
+              @click="newFor = z.key; tIcon = ZONE_GLYPH[z.key]; tImg = ''">
+              <Glyph :name="ZONE_GLYPH[z.key]" :size="27"/> {{ z.key }}
             </button>
           </div>
         </div>
         <div class="f-item">
-          <label>叫啥名（十个字以内）</label>
-          <input v-model="tName" maxlength="10" placeholder="比如：钓鱼"/>
+          <label>叫啥名</label>
+          <input v-model="tName" placeholder="比如：钓鱼"/>
         </div>
         <div class="f-item">
           <label>挑个记号，或者贴一张自己的画</label>
           <div class="seed-pick">
-            <button class="pick up" :class="{ on: !!tImg }" @click="picker.click()">
+            <button class="pick up" :class="{ on: !!tImg }" @click="pickTopicPhoto">
               <img v-if="tImg" class="thumb" :src="tImg" alt=""/>
-              <Glyph v-else name="upload" :size="22"/>
+              <Glyph v-else name="upload" :size="32"/>
             </button>
             <button v-for="g in SEED_CHOICES" :key="g" class="pick" :class="{ on: !tImg && tIcon === g }" :style="pickStyle(g)"
               @click="tIcon = g; tImg = ''">
-              <Glyph :name="g" :size="22"/>
+              <Glyph :name="g" :size="32"/>
             </button>
           </div>
           <input ref="picker" type="file" accept="image/*" hidden @change="attach"/>
         </div>
         <div class="f-item">
           <label>一句话介绍（可空）</label>
-          <input v-model="tIntro" maxlength="200"/>
+          <input v-model="tIntro" maxlength="30"/>
         </div>
         <div class="m-acts">
           <button class="btn-ghost" @click="newFor = ''">算了</button>
@@ -458,157 +566,162 @@ onMounted(() => notice.load());
 
 <style scoped>
 .home { position: relative; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+.home .top-nav nav { margin-left: auto; }
 .home .top-nav, .home .h-hero { transition: transform .3s, opacity .3s; }
 /* 去串门：整页轻轻抬一下，像人抬起头往远处看 */
 .home.leaving .top-nav, .home.leaving .h-hero { transform: translateY(-8px); opacity: 0; }
 .home.leaving .meadow { transform: translateY(-8px); opacity: 0;
   transition: transform .3s, opacity .3s; }
 
-.nav-link { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-soft); font-size: 14px; transition: color .3s; }
+.nav-link { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-soft); font-size: var(--fs-head); transition: color .3s; }
 .nav-link:hover { color: var(--wood); }
-.nav-link.quiet { font-size: 13px; color: var(--ink-faint); }
+.nav-link.quiet { color: var(--ink-faint); }
 
-.h-hero { position: relative; flex: none; text-align: center; padding: 16px 20px 4px; }
-.h-hero h1 { font-size: 29px; font-weight: normal; letter-spacing: .1em; filter: url(#ink-grain); }
-.h-hero p { color: var(--ink-soft); margin-top: 2px; font-size: 14.5px; }
+/* 题头只是纸上的字，别挡住风里飘到这儿歇脚的种子 */
+.h-hero { position: relative; z-index: 20; pointer-events: none; flex: none; text-align: center; padding: 16px 20px 4px; }
+.h-hero h1 { font-size: var(--fs-hero); font-weight: normal; letter-spacing: .1em; filter: url(#ink-grain); }
+.h-hero p { color: var(--ink-soft); margin-top: 2px; font-size: var(--fs-base); }
 
-/* 一整片原野，地势从树冠到水面。页面不滚，原野自己在框里滚，滚条藏起来 */
-.meadow { position: relative; flex: 1; min-height: 0; margin: 0 2vw; cursor: crosshair;
+/* 类目弹窗跟着名字长短裁纸，题头一行写完 */
+.topic-modal { max-width: 92vw; }
+.topic-modal .m-h { font-size: clamp(20px, 4.6vw, var(--fs-title)); white-space: nowrap; gap: 9px; }
+.topic-modal label { font-size: var(--fs-base); }
+
+/* 一整片原野，地势从树冠到水面。页面不滚，原野自己在框里滚，滚条换成一根藤 */
+.meadow-wrap { position: relative; flex: 1; min-height: 0; display: flex; margin: 0 2vw; }
+.meadow { --tree-w: min(45vw, 640px); --tree-lift: 120px; --tree-x: calc(24.5% - 160px);
+  /* 树往高里长：树干和根占了整整一竖，根仍旧扎在这条土线上 */
+  --tree-h: min(calc(var(--tree-w) * 1.4), calc(100% - var(--tree-lift)));
+  position: relative; flex: 1; min-width: 0; min-height: 0; cursor: crosshair;
   overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none;
   transition: transform .9s cubic-bezier(.2, .7, .3, 1), opacity .8s .04s; }
 .meadow::-webkit-scrollbar { display: none; }
-/* 树是这片原野的正主：底下的枝最长，往上越收越窄 */
-.tree { position: absolute; left: 50%; top: 47%; width: 30%; max-width: 450px; aspect-ratio: 1;
-  height: auto; z-index: 2; transform: translate(-50%, -50%); pointer-events: none; }
+/* 树长在原野左边，高过藤和类目，枝梢一直伸到风里去 */
+.tree { position: absolute; left: var(--tree-x); bottom: calc(var(--tree-lift) - var(--tree-drop, 0px)); top: auto;
+  width: auto; aspect-ratio: 300 / 420; height: calc(var(--tree-h) * var(--tree-grow, 1) * var(--tree-boost, 1));
+  z-index: 12; transform: translateX(-50%); pointer-events: none;
+  transition: height .9s cubic-bezier(.2, .8, .3, 1); }
+/* 挂满一棵后新冒出来的树：挨着最高的那棵，一株株矮一点，根还落在同一条土线上 */
+.tree:not(.tree-0) { left: var(--tree-left); bottom: calc(var(--tree-lift) - var(--tree-drop, 0px));
+  height: calc((var(--tree-h) * var(--tree-scale) * var(--tree-grow, 1) + var(--tree-extra, 0px)) * var(--tree-boost, 1)); width: auto;
+  z-index: 11; opacity: .94; }
 /* 落花只罩在树冠那一带：花瓣是从开了花的枝头上掉的，不是从天上掉的 */
-.shed { position: absolute; left: 50%; top: 18%; width: 28%; max-width: 430px; height: 38%;
-  transform: translateX(-50%); pointer-events: none; }
+.shed { position: absolute; left: var(--tree-x); bottom: calc(var(--tree-lift) + var(--tree-h) * .34 - var(--tree-drop, 0px));
+  width: calc(var(--tree-h) * .56); height: calc(var(--tree-h) * .34);
+  transform: translateX(-50%); pointer-events: none; z-index: 14; }
 .shed :deep(.drift) { inset: 0; height: auto; }
 
-/* 篱笆上的话变成一张纸，从田埂那头慢慢飘进来，落了也不停地晃 */
-.drift-note { position: absolute; left: 47%; top: 9%; z-index: 9; width: min(248px, 58vw);
-  text-align: left; transform: rotate(-1.1deg); }
-.paper-in { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%;
-  padding: 10px 13px 9px; background: var(--card);
-  border: 1.3px dashed rgba(139, 107, 74, .42); box-shadow: 0 5px 14px rgba(94, 83, 64, .09);
-  border-radius: 3px 7px 4px 6px; animation: noteDrift 23s ease-in-out -7s infinite; }
-.drift-note em { display: inline-flex; align-items: center; gap: 4px; font-style: normal; font-size: 11px;
-  color: var(--grass-deep); letter-spacing: .08em; }
-.drift-note .line { width: 100%; font-size: 12.5px; line-height: 1.75; color: #5C5044;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.drift-note .line b { font-weight: normal; color: var(--wood); margin-right: 3px; }
-.drift-note .more { font-size: 10.5px; color: var(--ink-faint); letter-spacing: .05em; }
-.drift-note:hover .paper-in { border-color: rgba(139, 107, 74, .62); }
-@keyframes noteDrift {
-  0%, 100% { transform: rotate(-1.1deg) translate(0, 0); }
-  19% { transform: rotate(-2.3deg) translate(-5px, 4px); }
-  41% { transform: rotate(-.2deg) translate(4px, -5px); }
-  63% { transform: rotate(-1.8deg) translate(-3px, -2px); }
-  84% { transform: rotate(-.7deg) translate(2px, 3px); }
+/* 一根横藤从原野这头长到那头，类目一左一右垂在藤下 */
+.vine-field { position: absolute; inset: 0; z-index: 21; pointer-events: none; }
+.vine-row { position: absolute; height: 78px; pointer-events: none; }
+/* 压在下面那二十股，不抢主藤，只是让它看起来是长出来的，不是画出来的 */
+.vine-wild { position: absolute; left: 0; top: 50%; width: 100%; height: 220px;
+  transform: translateY(-50%); overflow: visible;
+  fill: none; stroke: var(--grass); stroke-linecap: round; opacity: .82;
+  filter: url(#boil-soft); }
+.vine-wild path { vector-effect: non-scaling-stroke; transform-box: fill-box; transform-origin: 50% 60%;
+  animation-name: wildSway; animation-timing-function: ease-in-out; animation-iteration-count: infinite;
+  animation-direction: alternate; }
+@keyframes wildSway {
+  from { transform: rotate(-.32deg); }
+  to { transform: rotate(.38deg); }
 }
-.note-enter-active, .note-leave-active { transition: opacity .5s, transform .5s; }
-.note-enter-from, .note-leave-to { opacity: 0; transform: rotate(-3deg) translate(18px, -7px); }
-.note-leave-active { animation: none; }
-.home.leaving .drift-note { opacity: 0; transition: opacity .3s; }
-.zone-tag { position: absolute; transform: translateX(-50%); white-space: nowrap;
-  font-size: 12.5px; color: #5F513F; opacity: .92; letter-spacing: .14em;
-  display: inline-flex; align-items: center; gap: 5px; pointer-events: none; }
+.vine-ink { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible;
+  fill: none; stroke: var(--grass-deep); stroke-width: 4.2; stroke-linecap: round; opacity: .64;
+  filter: url(#boil-soft);
+  animation: vineBreathe 17s ease-in-out infinite alternate, vineSway 11s ease-in-out infinite alternate; }
+.vine-ink path { vector-effect: non-scaling-stroke; }
+/* 第二股藤比主线浅，缠着走才像活的 */
+.vine-braid { stroke: var(--grass); stroke-width: 2.6; opacity: .9; }
+.vine-row.lit .vine-ink { stroke: var(--grass-deep); opacity: .96; }
+/* 窄屏那根竖藤，平时藏着 */
+.vine-down, .vm-leaf, .vm-flit { display: none; }
+.vine-tendril { position: absolute; width: var(--ts); height: calc(var(--ts) * 1.1); overflow: visible;
+  fill: none; stroke: var(--grass-deep); stroke-width: 2.2; stroke-linecap: round; opacity: .58;
+  transform: translate(-50%, -100%) rotate(var(--rot)); transform-origin: 50% 100%;
+  pointer-events: none; transition: opacity .4s;
+  animation: tendrilBreathe 6.5s ease-in-out infinite alternate; }
+.vine-tendril.down { transform: translate(-50%, 0) scaleY(-1) rotate(var(--rot)); transform-origin: 50% 0; }
+.vine-row.lit .vine-tendril { opacity: .9; }
+.vine-sprig { position: absolute; opacity: .9;
+  transform: translate(-50%, -50%) rotate(var(--rot)); pointer-events: none; transition: opacity .4s;
+  animation: sprigSway var(--dur, 7s) ease-in-out var(--delay, 0s) infinite alternate; }
+.vine-row.lit .vine-sprig { opacity: 1; }
+/* 停在藤上的蝶和虫：不是贴图，翅膀一开一合，身子随风挪一点 */
+.vine-flit { position: absolute; z-index: 0; opacity: .85; pointer-events: none;
+  transform: translate(-50%, -50%) rotate(var(--rot));
+  animation: vineFlit var(--dur) ease-in-out var(--delay) infinite alternate; }
+.vine-flit :deep(svg) { transform-box: fill-box; transform-origin: center;
+  animation: wingBeat 1.4s ease-in-out infinite alternate; }
+@keyframes sprigSway {
+  from { transform: translate(-50%, -50%) rotate(calc(var(--rot) - 3deg)); }
+  to { transform: translate(-50%, -50%) rotate(calc(var(--rot) + 3deg)); }
+}
+@keyframes vineFlit {
+  from { transform: translate(-50%, -50%) translate(calc(var(--fx) * -.45), calc(var(--fy) * -.4)) rotate(calc(var(--rot) - 8deg)); }
+  to { transform: translate(-50%, -50%) translate(calc(var(--fx) * .45), calc(var(--fy) * .4)) rotate(calc(var(--rot) + 10deg)); }
+}
+@keyframes wingBeat { from { transform: scaleX(1); } to { transform: scaleX(.78); } }
+@keyframes vineBreathe { from { opacity: .58; } to { opacity: .8; } }
+@keyframes vineSway { from { rotate: -.28deg; } to { rotate: .28deg; } }
+@keyframes tendrilBreathe { from { opacity: .42; } to { opacity: .74; } }
 .art { position: absolute; fill: none; stroke: var(--graphite); stroke-width: 1; opacity: .16;
   stroke-linecap: round; pointer-events: none; }
 .art path { vector-effect: non-scaling-stroke; }
 .strata { left: 1%; top: 36%; width: 46%; height: 28%; }
 .water { left: 4%; top: 66%; width: 92%; height: 22%; stroke: var(--sky); opacity: .3; }
 
-.veins { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
-.veins path { stroke: var(--grass); stroke-width: 1.25; stroke-linecap: round; opacity: .55;
-  stroke-dasharray: 5 4; filter: url(#boil-soft);
-  animation: dashflow 3.2s linear infinite, fadeUp .45s ease-out backwards; }
-@keyframes dashflow { to { stroke-dashoffset: -18; } }
-
-/* 类目就是纸上写的一小块地名：没有框、没有底，靠字和记号自己站着 */
+/* 类目是垂在藤蔓下的记号：脚上不落地，靠一根细藤吊着 */
 .node {
-  position: absolute; z-index: 3;   /* 麦子长在字前面会糊，让地块压过麦梢 */
-  transform: translate(calc(-50% + var(--ox, 0px)), calc(-50% + var(--oy, 0px)))
-    rotate(var(--rot)) scale(var(--sc));
-  display: flex; flex-direction: column; align-items: center; gap: 1px; cursor: pointer;
-  padding: 5px 6px 7px; background: none;
+  position: absolute; z-index: 1;
+  transform: translateX(-50%) rotate(var(--rot)) scale(calc(var(--sc) * var(--fit, 1)));
+  transform-origin: 50% 0;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  padding: 2px; background: none; pointer-events: auto;
 }
-.node.on { z-index: 12; }
-.n-icon { color: var(--graphite); transition: color .4s, transform .5s cubic-bezier(.3, .9, .3, 1); }
-.n-img { width: 34px; height: 34px; object-fit: cover; border-radius: 46% 54% 50% 50% / 54% 46% 52% 48%;
+.node.on { z-index: 22; }
+.stem { position: absolute; left: 50%; bottom: 100%; width: 8px; color: rgba(79, 107, 58, .42);
+  transform: translateX(-50%); overflow: visible; pointer-events: none; transition: color .4s; }
+.stem path { fill: none; stroke: currentColor; stroke-width: 1.15; vector-effect: non-scaling-stroke; }
+.node:hover .stem, .node.on .stem { color: var(--grass-deep); }
+.n-icon { color: var(--tone, var(--graphite)); transition: filter .4s, transform .5s cubic-bezier(.3, .9, .3, 1); }
+.n-img { width: var(--icon, 48px); height: var(--icon, 48px); object-fit: cover;
+  border-radius: 46% 54% 50% 50% / 54% 46% 52% 48%;
   box-shadow: inset 0 0 0 1.3px rgba(139, 107, 74, .45); transition: transform .5s cubic-bezier(.3, .9, .3, 1); }
-.node:hover .n-icon, .node.on .n-icon { color: var(--grass-deep); transform: translateY(-3px) rotate(-3deg); }
+.node:hover .n-icon, .node.on .n-icon { filter: saturate(1.18) brightness(.95); transform: translateY(-3px) rotate(-3deg); }
 .node:hover .n-img, .node.on .n-img { transform: translateY(-3px) rotate(-4deg) scale(1.07); }
-.n-name { font-size: 15.5px; letter-spacing: .04em; white-space: nowrap; }
-.node:hover .n-name, .node.on .n-name { color: var(--wood);
-  text-decoration: underline wavy rgba(139, 107, 74, .5) 1px; text-underline-offset: 5px; }
-.n-intro {
-  position: absolute; top: calc(100% + 4px); left: 50%; transform: translate(-50%, 4px);
-  font-size: 12.5px; color: var(--ink-soft); white-space: nowrap; max-width: 240px; overflow: hidden;
-  text-overflow: ellipsis; opacity: 0; pointer-events: none; transition: opacity .4s .12s, transform .4s .12s;
-  padding: 0 9px 1px; border-radius: var(--r-c); background: rgba(250, 246, 236, .93);
-}
-.node.on .n-intro { opacity: .95; transform: translate(-50%, 0); }
+/* 手放上去才露出这块地的名：挂一块木牌，横着长，话多长牌子就多宽 */
+.node-sign { top: calc(100% + 2px); opacity: 0; visibility: hidden; translate: 0 3px;
+  transition: opacity .35s, translate .35s, visibility .35s; }
+.node:hover .node-sign, .node.on .node-sign, .node:focus-visible .node-sign {
+  opacity: 1; visibility: visible; translate: 0 0; }
 /* 水波纹 */
-.rip { position: absolute; left: 50%; top: 34%; width: 84px; height: 52px; margin: -26px -42px;
+.rip { position: absolute; left: 50%; top: 50%; width: 96px; height: 58px; margin: -29px -48px;
   border: 1.2px solid rgba(126, 159, 174, .5); border-radius: 50%; pointer-events: none;
   animation: ripple 1.6s ease-out infinite; }
 .r2 { animation-delay: .55s; }
 /* 刚撒下的那颗：脚边洇开两圈水纹，告诉用户它长在这儿了 */
 .node.fresh { z-index: 14; }
-.node.fresh::after { content: ''; position: absolute; left: 50%; top: 34%; width: 84px; height: 52px; margin: -26px -42px;
+.node.fresh::after { content: ''; position: absolute; left: 50%; top: 50%; width: 96px; height: 58px; margin: -29px -48px;
   border: 1.4px solid rgba(126, 159, 174, .65); border-radius: 50%; pointer-events: none;
   animation: ripple 1.5s ease-out 2; }
 
-/* 树根下的一条土带：地就沿着这条线一棵一棵点下去，不另起一行 */
-.ground-bed { position: absolute; left: 50%; top: calc(47% + min(14.4vw, 225px));
-  width: var(--bed-w, 460px); max-width: 92%; height: 0;
-  transform: translateX(-50%); z-index: 6; pointer-events: none; }
-.ground-seed { position: absolute; top: calc(var(--dy) - 2px); transform: translateX(-50%) rotate(var(--rot));
-  display: inline-flex; flex-direction: column; align-items: center; gap: 0; color: var(--grass-deep);
-  pointer-events: auto; transition: transform .4s, color .4s; }
-.ground-seed::before { content: ''; position: absolute; top: 17px; left: 50%; width: 26px; height: 7px;
-  margin-left: -13px; border-radius: 50%; background: rgba(120, 96, 62, .2); z-index: -1; }
-.ground-seed span { font-size: 11px; max-width: 112px; white-space: nowrap; overflow: hidden;
-  text-overflow: ellipsis; color: var(--ink-soft); opacity: .74; transform: translateY(1px);
-  transition: opacity .35s, transform .35s, background .35s; pointer-events: none;
-  padding: 0 4px; border-radius: 3px; background: rgba(250, 246, 236, .62); }
-.ground-seed:hover { transform: translateX(-50%) rotate(0deg) translateY(-3px); color: var(--wood); }
-.ground-seed:hover span { opacity: 1; transform: none; background: rgba(250, 246, 236, .92); }
-
-/* 风里的那些：各借一阵风，绕的圈子、快慢、转身都不一样 */
-.wind-seed { position: absolute; z-index: 4; display: inline-flex; align-items: center; gap: 3px;
-  color: rgba(95, 81, 63, .62); transform: rotate(var(--rot));
-  animation: windFloat var(--dur) ease-in-out var(--delay) infinite; }
-.wind-seed span { font-size: 10.5px; letter-spacing: .03em; color: var(--ink-soft); opacity: 0;
-  padding: 0 3px; border-radius: 2px; background: rgba(250, 246, 236, .8); transition: opacity .5s; }
-.wind-seed:hover { z-index: 12; color: var(--wood); }
-.wind-seed:hover span { opacity: .9; }
-@keyframes windFloat {
-  0%, 100% { transform: translate(0, 0) rotate(var(--rot)); }
-  17% { transform: translate(calc(var(--dx) * .42), calc(var(--dy) * -.55)) rotate(calc(var(--rot) + 7deg)); }
-  39% { transform: translate(calc(var(--dx) * .86), calc(var(--dy) * .24)) rotate(calc(var(--rot) - 4deg)); }
-  58% { transform: translate(calc(var(--dx) * .28), calc(var(--dy) * .82)) rotate(calc(var(--rot) + 11deg)); }
-  79% { transform: translate(calc(var(--dx) * -.34), calc(var(--dy) * .36)) rotate(calc(var(--rot) - 8deg)); }
-}
-
-.mist { position: absolute; z-index: 1; left: 50%; top: 88%; transform: translate(-50%, -50%);
+.mist { position: absolute; z-index: 1; right: 3%; bottom: 150px;
   display: flex; align-items: center; gap: 9px; padding: 8px 15px 9px; color: var(--ink-faint);
-  font-size: 12.5px; text-align: left; line-height: 1.5; border-radius: var(--r-c);
+  font-size: var(--fs-base); text-align: left; line-height: 1.5; border-radius: var(--r-c);
+  background: color-mix(in srgb, var(--paper) 80%, transparent);
   box-shadow: inset 0 0 0 1.3px dashed rgba(167, 156, 133, .45); transition: color .4s, box-shadow .4s, transform .4s; }
-.mist:hover { color: var(--wood); box-shadow: inset 0 0 0 1.4px rgba(139, 107, 74, .5); transform: translate(-50%, -50%) rotate(-.8deg); }
+.mist:hover { color: var(--wood); box-shadow: inset 0 0 0 1.4px rgba(139, 107, 74, .5); transform: rotate(-.8deg); }
 
-/* 头像旁边：一片叶记着留言，一枚小铃记着门外；都不点红点 */
-.avatar-wrap { position: relative; display: inline-flex; }
-.avatar-wrap .avatar { transition: transform .35s, background .35s; }
-.avatar-wrap .avatar:hover { background: rgba(79, 107, 58, .24); transform: rotate(-4deg); }
-.leaf-msg { position: absolute; right: -14px; bottom: -10px; display: inline-flex; align-items: center;
-  gap: 0; color: var(--grass-deep); line-height: 0; transform: rotate(-8deg); cursor: pointer; }
-.leaf-msg b { font-size: 10.5px; font-weight: normal; letter-spacing: 0; transform: translate(-7px, 1px); }
-.door-msg { position: absolute; left: -13px; top: -10px; display: inline-flex; align-items: center; gap: 0;
-  color: var(--wood); line-height: 0; transform: rotate(7deg); cursor: pointer; }
-.door-msg b { font-size: 10px; font-weight: normal; transform: translate(-2px, 1px); }
-.door-msg:hover, .leaf-msg:hover { color: var(--clay); }
+/* 头像旁边直接写着今天的动静，不藏着等 hover */
+.notice-line { display: inline-flex; align-items: center; gap: 5px; color: var(--wood);
+  font-size: var(--fs-head); letter-spacing: .02em; white-space: nowrap; }
+.notice-line button { display: inline-flex; align-items: center; gap: 3px; color: inherit; font-size: inherit;
+  text-decoration: underline wavy rgba(139, 107, 74, .38) 1px; text-underline-offset: 4px; }
+.notice-line button:hover { color: var(--clay); }
+.notice-line i { font-style: normal; opacity: .45; }
+.home .avatar { width: 41px; height: 43px; font-size: var(--fs-head); transition: transform .35s, background .35s; }
+.avatar:hover { background: rgba(79, 107, 58, .24); transform: rotate(-4deg); }
 .h-wheat { position: absolute; left: 0; right: 0; bottom: -6px; }
 
 /* 开挖：原野轻轻往后退一步，让风把那把叶子带走 */
@@ -619,48 +732,95 @@ onMounted(() => notice.load());
 /* 撤掉这块地跟开挖不是一路人，靠在左边、离远一点 */
 .uproot { margin-right: auto; display: inline-flex; align-items: center; gap: 5px; color: var(--ink-faint); }
 .uproot:hover { color: var(--clay); }
-.zone-pick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
-.zone-pick button { display: inline-flex; align-items: center; gap: 5px; font-size: 13.5px; color: var(--ink-soft);
-  padding: 3px 12px 4px; border-radius: var(--r-c); box-shadow: inset 0 0 0 1.2px rgba(150, 133, 100, .35); transition: .3s; }
-.zone-pick button.on { color: var(--grass-deep); box-shadow: inset 0 0 0 1.4px rgba(79, 107, 58, .5); background: rgba(79, 107, 58, .08); }
-.seed-pick { display: flex; flex-wrap: wrap; gap: 9px 7px; margin: 8px 2px 4px; }
-.pick { color: var(--ink-faint); padding: 4px; border-radius: 40% 55% 48% 52% / 52% 46% 54% 48%;
-  transform: translate(var(--pdx), var(--pdy)) rotate(var(--prot)); transition: color .3s, background .3s; }
-.pick:hover { color: var(--wood); background: rgba(139, 107, 74, .1); }
+.seed-modal { width: min(640px, 94vw); padding: 30px 38px 26px; }
+.seed-modal .m-h { font-size: var(--fs-title); font-weight: normal; margin-bottom: 18px; }
+.seed-modal .f-item { margin-bottom: 16px; }
+.seed-modal input { font-size: var(--fs-read); }
+.zone-pick { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.zone-pick button { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-read); color: var(--tone, var(--ink-soft));
+  padding: 6px 17px 7px; border-radius: var(--r-c); box-shadow: inset 0 0 0 1.3px color-mix(in srgb, var(--tone, #968564) 38%, transparent);
+  transition: color .3s, background .3s, transform .3s; }
+.zone-pick button:hover { transform: translateY(-2px); background: color-mix(in srgb, var(--tone, #968564) 9%, transparent); }
+.zone-pick button.on { color: var(--tone, var(--grass-deep));
+  box-shadow: inset 0 0 0 1.6px color-mix(in srgb, var(--tone, #4f6b3a) 64%, transparent);
+  background: color-mix(in srgb, var(--tone, #4f6b3a) 12%, transparent); }
+.seed-pick { display: flex; flex-wrap: wrap; gap: 11px 9px; margin: 10px 2px 4px; }
+.pick { color: var(--tone, var(--wood)); padding: 5px; border-radius: 40% 55% 48% 52% / 52% 46% 54% 48%;
+  transform: translate(var(--pdx), var(--pdy)) rotate(var(--prot)); transition: color .3s, background .3s, transform .3s; }
+.pick:hover { color: var(--grass-deep); background: rgba(139, 107, 74, .1); }
 .pick.on { color: var(--grass-deep); background: rgba(79, 107, 58, .14);
-  transform: translate(var(--pdx), var(--pdy)) rotate(calc(var(--prot) - 4deg)) scale(1.08); }
+  transform: translate(var(--pdx), var(--pdy)) rotate(calc(var(--prot) - 4deg)) scale(1.12); }
 /* 贴自己那张画：摆在头一个，选上了就压过手绘记号 */
-.pick.up { --pdx: 0px; --pdy: 0px; --prot: -3deg; line-height: 0;
+.pick.up { --pdx: 0px; --pdy: 0px; --prot: -3deg; --tone: var(--ink-faint); line-height: 0;
   box-shadow: inset 0 0 0 1.2px dashed rgba(150, 133, 100, .5); }
 .pick.up.on { box-shadow: inset 0 0 0 1.5px rgba(79, 107, 58, .6); }
-.thumb { width: 26px; height: 26px; object-fit: cover; border-radius: 44% 56% 52% 48% / 52% 46% 54% 48%; }
+.thumb { width: 38px; height: 38px; object-fit: cover; border-radius: 44% 56% 52% 48% / 52% 46% 54% 48%; }
 
-/* 窄屏：别再按百分比往画布上钉，改成一行行散落着贴，怎么缩都不重叠 */
+/* 宽屏整根藤都铺得下，原野不滚动，页面也不跟着滚 */
+@media (min-width: 1001px) {
+  .meadow { overflow: hidden; }
+}
+/* 桌子窄一点时，藤不拆行，记号略收小，仍旧一路横着挂过去 */
+@media (min-width: 1001px) and (max-width: 1199px) {
+  .node { --fit: .9; }
+}
+@media (min-width: 1001px) and (max-width: 1100px) {
+  .node { --fit: .82; }
+}
+
+/* 窄屏：藤竖起来，记号左右交替挂在藤上，树接在下面 */
 @media (max-width: 1000px) {
   .top-nav { padding: 10px 16px 6px; }
   .h-hero { padding: 10px 16px 2px; }
-  .h-hero h1 { font-size: 22px; }
-  .h-hero p { font-size: 13px; }
+  .h-hero h1 { font-size: var(--fs-title); }
+  .h-hero p { font-size: var(--fs-md); }
   .meadow { display: flex; flex-wrap: wrap; align-content: flex-start; justify-content: center;
-    gap: 2px 6px; padding: 2px 3vw 240px; cursor: default; }
-  /* 流式排布时树不跟节点抢地方：固定大小沉在地平线上，底下留出一条带子给它和麦子 */
-  .tree { width: 220px; top: auto; bottom: 70px; left: 3%; opacity: .6; transform: none; }
-  .shed { left: 3%; width: 220px; max-width: none; top: auto; bottom: 70px; height: 220px; transform: none; opacity: .8; }
-  .ground-bed { left: 3%; top: auto; bottom: 62px; width: 220px; height: auto; transform: none;
-    display: flex; flex-wrap: wrap; justify-content: center; gap: 0 6px; }
-  .ground-seed { position: static; transform: rotate(var(--rot)); }
-  .ground-seed:hover { transform: rotate(0deg) translateY(-3px); }
-  .drift-note { position: relative; left: auto; top: auto; order: -1; flex: 0 0 auto;
-    width: min(286px, 86vw); margin: 6px auto 3px; }
-  .wind-seed { opacity: .72; }
-  .zone-tag { position: static; transform: none; flex: 0 0 100%; justify-content: center; margin: 14px 0 2px; opacity: .9; }
-  /* 绝对定位那半格回中位移在这儿会把节点拽歪，连 left/top 一起放掉；
-     但得认个 position，刚撒下那颗的水纹才有地方落脚 */
-  .node { position: relative; left: auto !important; top: auto !important;
-    transform: translate(var(--jx), var(--jy)) rotate(var(--rot)) scale(var(--sc)); padding: 4px 8px 6px; }
-  .n-name { font-size: 13.5px; }
-  .n-intro { display: none; }
-  .mist { position: static; transform: none; margin: 16px auto 0; }
+    gap: 2px 6px; padding: 2px 3vw 14px; cursor: default; }
+  /* 藤先走完，树再接在下面；不再钉在窗口上压着类目 */
+  .tree { position: relative; order: 2; flex: 0 0 auto; width: calc(260px * var(--tree-grow, 1) * var(--tree-boost, 1)); height: auto;
+    margin: 12px auto 0 5vw; top: auto; bottom: auto; left: auto; opacity: .75; transform: none; }
+  .tree:not(.tree-0) { left: auto; top: auto; width: calc(210px * var(--tree-grow, 1) * var(--tree-boost, 1)); height: auto; margin: 22px 5vw 0 0; order: 2; }
+  .shed { display: none; }
+  /* 藤走满整行，两列记号顺着藤垂下来 */
+  .vine-field { position: relative; inset: auto; flex: 0 0 100%; width: 100%; padding-top: 2px; }
+  .vine-row { position: relative; left: auto !important; top: auto !important;
+    width: min(620px, 92%) !important; height: auto; margin: 0 auto; padding: 10px 0 6px;
+    display: grid; grid-template-columns: 1fr 1fr; column-gap: 84px; row-gap: 18px;
+    align-items: center; }
+  .vine-ink, .vine-tendril, .vine-sprig, .vine-flit { display: none; }
+  .vine-down { display: block; position: absolute; inset: 0; width: 100%; height: 100%;
+    overflow: visible; fill: none; stroke: var(--grass); stroke-width: 2.7; stroke-linecap: round;
+    opacity: .7; filter: url(#boil-soft); }
+  .vine-down path { vector-effect: non-scaling-stroke; }
+  .vine-braid-down { stroke: var(--grass); stroke-width: 2; opacity: .9; }
+  .vine-row.lit .vine-down { stroke: var(--grass-deep); opacity: .92; }
+  .vm-leaf { display: inline-block; position: absolute; z-index: 1; opacity: .82;
+    transform: translate(-50%, -50%) rotate(var(--rot)); pointer-events: none;
+    animation: sprigSway var(--dur, 7s) ease-in-out var(--delay, 0s) infinite alternate; }
+  .vm-flit { display: inline-block; position: absolute; z-index: 0; opacity: .85; pointer-events: none;
+    transform: translate(-50%, -50%) rotate(var(--rot));
+    animation: vineFlit var(--dur, 22s) ease-in-out var(--delay, 0s) infinite alternate; }
+  .vm-flit :deep(svg) { transform-box: fill-box; transform-origin: center;
+    animation: wingBeat 1.4s ease-in-out infinite alternate; }
+  .node { left: auto !important; top: auto !important; position: relative;
+    transform: rotate(var(--rot)) scale(var(--sc)); transform-origin: 50% 50%; }
+  .node:not(.right) { grid-column: 1; justify-self: end; }
+  .node.right { grid-column: 2; justify-self: start; }
+  .node::before { content: ''; position: absolute; top: 50%; width: 42px; height: 1.5px;
+    background: var(--grass); opacity: .5; pointer-events: none; }
+  .node:not(.right)::before { right: -42px; }
+  .node.right::before { left: -42px; }
+  .stem { display: none; }
+  .mist { position: static; order: -1; right: auto; transform: none; margin: 4px auto 0; }
   .mist:hover { transform: none; }
+  /* 麦子收进队尾，别在中间压住类目 */
+  .h-wheat { position: relative; order: 4; flex: 0 0 100%; height: 120px; bottom: auto; margin-top: -18px; }
+}
+@media (max-width: 620px) {
+  .seed-modal { padding: 22px 18px 18px; }
+  .seed-modal .m-h { font-size: var(--fs-head); }
+  .seed-modal input { font-size: var(--fs-base); }
+  .zone-pick button { font-size: var(--fs-base); padding: 5px 13px 6px; }
+  .thumb { width: 32px; height: 32px; }
 }
 </style>

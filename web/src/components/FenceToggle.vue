@@ -32,11 +32,11 @@ const RAILS = [
 .ink { filter: url(#boil-soft); }
 .post { stroke: #8B6B4A; stroke-width: 1.5; stroke-linecap: round; opacity: .78;
   animation: strokeIn .7s ease-out backwards; }
-.rail { stroke: #8A7A66; stroke-width: 1.5; stroke-linecap: round;
+.rail { stroke: var(--ink-soft); stroke-width: 1.5; stroke-linecap: round;
   transform-box: fill-box; transform-origin: left center;
   transition: transform .4s cubic-bezier(.25, .1, .25, 1), opacity .4s, stroke .4s; }
 .fence.open .rail { stroke: #B08A5E; }
 .fence.open .rail.mid { transform: scaleX(0); opacity: 0; }
-.fence-note { font-size: 12px; letter-spacing: 1.5px; color: var(--ink-soft); transition: color .4s; }
+.fence-note { font-size: var(--fence-note, var(--fs-sm)); letter-spacing: 1.5px; color: var(--ink-soft); transition: color .4s; }
 .fence.open .fence-note { color: var(--wood); }
 </style>

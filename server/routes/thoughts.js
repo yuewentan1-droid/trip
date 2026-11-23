@@ -22,8 +22,9 @@ r.put('/:id', async (req, res) => {
   const content = String(req.body.content || '').trim();
   if (!content) return err(res, '总得写点什么');
   if (chars(content) > 500) return err(res, '这一层装不下了，再落一层');
-  await db.query('UPDATE thoughts SET dimension=?, content=? WHERE id=?',
-    [req.body.dimension, content, t.id]);
+  const img = req.body.img === undefined ? t.img : String(req.body.img || '');
+  await db.query('UPDATE thoughts SET dimension=?, content=?, img=? WHERE id=?',
+    [req.body.dimension, content, img, t.id]);
   ok(res);
 });
 

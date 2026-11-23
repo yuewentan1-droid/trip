@@ -1,11 +1,17 @@
 <script setup>
+import { ref } from 'vue';
 import Glyph from './Glyph.vue';
+import VineScroll from './VineScroll.vue';
+import FestoonLights from './FestoonLights.vue';
+
+const fBody = ref(null);
 
 defineProps({
   open: Boolean,
   title: { type: String, default: '' },
   note: { type: String, default: '' },
-  wide: Boolean
+  wide: Boolean,
+  keepClose: Boolean
 });
 defineEmits(['close']);
 </script>
@@ -34,13 +40,17 @@ defineEmits(['close']);
             <Glyph class="hv v2" name="sakura" :size="13"/>
             <Glyph class="hv v3" name="sprout" :size="14"/>
             <Glyph class="hv v4" name="daisy" :size="13"/>
+            <FestoonLights class="hat-lights" :count="16" :seed="3" :sag="6"/>
             <div class="f-title">
               <h3>{{ title }}</h3>
               <p v-if="note">{{ note }}</p>
             </div>
-            <button class="f-close" title="合上" @click="$emit('close')"><Glyph name="close" :size="14"/></button>
+            <button v-if="keepClose" class="f-close" title="合上" @click="$emit('close')"><Glyph name="close" :size="14"/></button>
           </header>
-          <div class="f-body roll"><slot/></div>
+          <div class="f-body-wrap">
+            <div ref="fBody" class="f-body roll"><slot/></div>
+            <VineScroll :el="fBody"/>
+          </div>
         </section>
       </div>
     </Transition>
@@ -50,15 +60,20 @@ defineEmits(['close']);
 <style scoped>
 .fence-mask { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 24px;
   background: rgba(63, 58, 47, .3); }
-.fence-box { position: relative; width: min(760px, 94vw); max-height: 88vh; display: flex; flex-direction: column;
+.fence-box { position: relative; width: min(980px, 94vw); max-height: 90vh; display: flex; flex-direction: column;
+  --fs-xs: 17px; --fs-sm: 19px; --fs-md: 21px; --fs-base: 23px; --fs-read: 25px;
+  --fs-head: 28px; --fs-title: 31px; font-size: var(--fs-base);
   background: var(--paper); border: 1.5px dashed rgba(150, 133, 100, .55);
   border-radius: 26px 14px 30px 12px / 14px 28px 12px 30px;
   box-shadow: 0 18px 44px rgba(63, 58, 47, .16); overflow: hidden;
   transform: rotate(-.28deg); }
-.fence-box.wide { width: min(980px, 94vw); }
+.fence-box.wide { width: min(1180px, 94vw); }
+body[data-night="1"] .fence-box { border-color: rgba(148, 160, 176, .22);
+  box-shadow: 0 18px 44px rgba(5, 9, 15, .34), 0 0 26px rgba(130, 156, 130, .05); }
 .f-hat { position: relative; flex: none; min-height: 82px; display: flex; align-items: center;
   justify-content: center; padding: 13px 54px 5px; }
 .rails { position: absolute; inset: 0; width: 100%; height: 78px; overflow: visible; opacity: .38; }
+.hat-lights { position: absolute; inset: 0 0 auto; height: 78px; z-index: 1; opacity: .92; }
 .fence-ink { filter: url(#boil-soft); }
 .post, .rail { fill: none; stroke: #8B6B4A; stroke-width: 1.5; stroke-linecap: round; }
 .rail { stroke-width: 1.2; }
@@ -72,12 +87,13 @@ defineEmits(['close']);
 .v3 { left: 78%; top: 29%; animation-duration: 9.1s; animation-delay: -5s; }
 .v4 { left: 88%; top: 42%; animation-duration: 12.7s; animation-delay: -7s; }
 .f-title { position: relative; text-align: center; z-index: 2; }
-.f-title h3 { font-size: 17px; font-weight: normal; letter-spacing: .12em; color: var(--ink);
+.f-title h3 { font-size: var(--fs-read); font-weight: normal; letter-spacing: .12em; color: var(--ink);
   padding: 1px 14px 2px; background: color-mix(in srgb, var(--paper) 86%, transparent); }
-.f-title p { margin-top: 1px; font-size: 12px; letter-spacing: .08em; color: var(--ink-faint); }
+.f-title p { margin-top: 1px; font-size: var(--fs-sm); letter-spacing: .08em; color: var(--ink-faint); }
 .f-close { position: absolute; right: 15px; top: 13px; color: var(--ink-faint); line-height: 0; padding: 5px; }
 .f-close:hover { color: var(--wood); }
-.f-body { flex: 1; min-height: 0; padding: 2px 24px 22px; overflow-y: auto; scrollbar-width: none; }
+.f-body-wrap { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.f-body { flex: 1; min-height: 0; padding: 2px 30px 22px 24px; overflow-y: auto; scrollbar-width: none; }
 .f-body::-webkit-scrollbar { display: none; }
 
 .fence-enter-active, .fence-leave-active { transition: opacity .35s, transform .35s; }

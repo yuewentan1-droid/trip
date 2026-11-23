@@ -3,12 +3,18 @@ import { computed, ref, watch } from 'vue';
 import { DIMS, dimOf } from '../constants/dimensions';
 import Glyph from './Glyph.vue';
 
-const props = defineProps({ modelValue: String, disabled: Boolean, center: String });
+const props = defineProps({
+  modelValue: String,
+  disabled: Boolean,
+  center: String
+});
 const emit = defineEmits(['update:modelValue']);
 
+// 六个视角正好占满一圈，刻度长短不齐，还是原来那面钟
+const R = 41.5;
 const ticks = DIMS.map((d, i) => {
   const a = (-90 + i * 60) * Math.PI / 180;
-  return { ...d, i, x: 50 + 41.5 * Math.cos(a), y: 50 + 41.5 * Math.sin(a) };
+  return { ...d, i, x: 50 + R * Math.cos(a), y: 50 + R * Math.sin(a) };
 });
 const on = computed(() => DIMS.findIndex(d => d.key === props.modelValue));
 const marks = DIMS.map((_, i) => {
@@ -61,8 +67,8 @@ function seek(e) {
       </g>
     </svg>
     <button v-for="t in ticks" :key="t.key" class="tick" :class="{ on: t.i === on }"
-      :style="{ left: t.x + '%', top: t.y + '%' }" :disabled="disabled" @click="pick(t.i)">
-      <Glyph :name="t.glyph" :size="19"/>
+      :style="{ left: t.x + '%', top: t.y + '%' }" :disabled="disabled" @click.stop="pick(t.i)">
+      <Glyph :name="t.glyph" :size="21"/>
       <span>{{ t.key }}</span>
     </button>
     <div class="hub">{{ center }}</div>
@@ -70,7 +76,7 @@ function seek(e) {
 </template>
 
 <style scoped>
-.compass { position: relative; width: 100%; max-width: 226px; aspect-ratio: 1; margin: 4px auto 12px; touch-action: none; }
+.compass { position: relative; width: 100%; max-width: 280px; aspect-ratio: 1; margin: 4px auto 6px; touch-action: none; }
 .compass.off { opacity: .5; }
 .wash { position: absolute; inset: -6%; border-radius: 46% 54% 50% 50% / 54% 46% 52% 48%; pointer-events: none;
   background: radial-gradient(circle at 50% 50%, var(--c), transparent 68%); opacity: .1;
@@ -90,12 +96,18 @@ function seek(e) {
 .pivot { fill: var(--graphite); stroke: none; opacity: .5; }
 
 .tick { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column;
-  align-items: center; gap: 1px; color: var(--ink-faint); font-size: 12px; line-height: 1.3;
-  padding: 3px 7px 4px; border-radius: var(--r-b); transition: color .45s, background .45s; }
+  align-items: center; gap: 1px; color: var(--ink-faint); font-size: var(--fs-read); line-height: 1.3;
+  padding: 3px 4px 4px; border-radius: var(--r-b); white-space: nowrap;
+  transition: color .45s, background .45s; }
 .tick:hover { color: var(--wood); }
 .tick.on { color: var(--ink); }
 .tick.on .gl { animation: sprout .75s cubic-bezier(.24, .9, .3, 1.1) backwards; }
 .tick.on span { letter-spacing: .1em; }
 .hub { position: absolute; left: 50%; top: calc(100% + 3px); transform: translateX(-50%); width: 70%;
-  text-align: center; font-size: 12px; line-height: 1.45; color: var(--ink-soft); pointer-events: none; }
+  text-align: center; font-size: var(--fs-base); line-height: 1.45; color: var(--ink-soft); pointer-events: none; }
+@media (max-width: 620px) {
+  .compass { max-width: 320px; }
+  .tick { font-size: var(--fs-base); }
+  .tick :deep(.gl) { display: none; }
+}
 </style>

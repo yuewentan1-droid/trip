@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 import Glyph from './Glyph.vue';
 
 // 每跨过 3 的倍数层递一礼。苗按层数往上长：破土、抽枝、打苞、初绽、结果，
@@ -33,11 +33,16 @@ const whisper = WHISPER[Math.floor(Math.random() * WHISPER.length)];
 const at = (x, y, spin) => ({ left: x / 1.2 + '%', top: y / 1.2 + '%', '--spin': spin + 'deg' });
 
 // 图形长稳之后再把字留够读完的工夫，然后自己安静收走
-onMounted(() => setTimeout(() => emit('done'), 5200));
+const box = ref(null);
+onMounted(() => {
+  const sc = box.value?.closest('.roll');
+  if (sc) sc.scrollTo({ top: sc.scrollHeight, behavior: 'smooth' });
+  setTimeout(() => emit('done'), 5200);
+});
 </script>
 
 <template>
-  <div class="bloom">
+  <div ref="box" class="bloom">
     <div class="bloom-in">
       <div class="grove">
         <svg viewBox="0 0 120 120" aria-hidden="true">
@@ -75,7 +80,7 @@ onMounted(() => setTimeout(() => emit('done'), 5200));
 
 <style scoped>
 /* 就长在左边那栏，抽个引子的下头；像从纸边自己冒出来的一小丛 */
-.bloom { position: relative; width: 100%; z-index: 1; pointer-events: none; }
+.bloom { position: relative; width: 100%; margin-top: auto; z-index: 1; pointer-events: none; }
 .bloom-in { position: relative; pointer-events: none;
   display: flex; flex-direction: column; align-items: flex-start;
   padding: 4px 0 2px; animation: rise .7s ease-out backwards; }
@@ -95,10 +100,10 @@ onMounted(() => setTimeout(() => emit('done'), 5200));
 .guest { color: var(--sky); }
 
 .say { min-width: 0; width: 100%; padding-bottom: 3px; }
-.gift { font-size: 21px; font-weight: normal; letter-spacing: .14em; line-height: 1.3; color: var(--ink); }
+.gift { font-size: var(--fs-title); font-weight: normal; letter-spacing: .14em; line-height: 1.3; color: var(--ink); }
 /* 一整幅里只许这一处点睛 */
 .gift b { font-weight: normal; color: #C0553B; }
-.whisper { font-size: 13px; line-height: 1.7; color: var(--ink-soft); margin-top: 4px;
+.whisper { font-size: var(--fs-md); line-height: 1.7; color: var(--ink-soft); margin-top: 4px;
   animation: rise .9s ease-out .6s backwards; }
 
 .shoo { position: absolute; top: 0; right: 0; padding: 3px 4px; line-height: 0; pointer-events: auto;
@@ -123,6 +128,6 @@ onMounted(() => setTimeout(() => emit('done'), 5200));
   .bloom-in { align-items: center; }
   .grove { margin-left: 0; }
   .say { text-align: center; }
-  .gift { font-size: 20px; }
+  .gift { font-size: var(--fs-head); }
 }
 </style>

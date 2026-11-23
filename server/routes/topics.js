@@ -16,13 +16,15 @@ r.get('/', async (req, res) => {
 });
 
 r.post('/', async (req, res) => {
-  const { category, icon, intro, img } = req.body;
+  const { category, icon, img } = req.body;
   const name = String(req.body.name || '').trim();
+  const intro = String(req.body.intro || '').trim();
   if (!name) return err(res, '名字总得起一个');
   if (chars(name) > 10) return err(res, '名字最多十个字');
+  if (chars(intro) > 30) return err(res, '一句话介绍最多三十个字');
   const [ret] = await db.query(
     'INSERT INTO topics (user_id, category, name, icon, intro, img) VALUES (?,?,?,?,?,?)',
-    [req.uid, category, name, icon || 'sprout', String(intro || '').slice(0, 200), img || '']);
+    [req.uid, category, name, icon || 'sprout', intro, img || '']);
   const [rows] = await db.query('SELECT * FROM topics WHERE id=?', [ret.insertId]);
   ok(res, rows[0]);
 });
@@ -36,11 +38,13 @@ async function mine(req) {
 r.put('/:id', async (req, res) => {
   if (!await mine(req)) return err(res, '系统给的那几块，动不了');
   const name = String(req.body.name || '').trim();
+  const intro = String(req.body.intro || '').trim();
   if (!name) return err(res, '名字总得起一个');
   if (chars(name) > 10) return err(res, '名字最多十个字');
-  const { icon, intro, img } = req.body;
+  if (chars(intro) > 30) return err(res, '一句话介绍最多三十个字');
+  const { icon, img } = req.body;
   await db.query('UPDATE topics SET name=?, icon=?, intro=?, img=? WHERE id=?',
-    [name, icon, String(intro || '').slice(0, 200), img || '', req.params.id]);
+    [name, icon, intro, img || '', req.params.id]);
   ok(res);
 });
 

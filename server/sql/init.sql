@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
   visibility ENUM('public','private') NOT NULL DEFAULT 'private',
   garden_name VARCHAR(10) NOT NULL DEFAULT '',
   bio VARCHAR(60) NOT NULL DEFAULT '',
+  extra_trees INT NOT NULL DEFAULT 0,
   views INT NOT NULL DEFAULT 0,
   published_at DATETIME DEFAULT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -36,7 +37,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   level INT DEFAULT 1,
   thought_count INT DEFAULT 0,
   status VARCHAR(10) DEFAULT 'running',
-  placement ENUM('tree','ground','wind') NOT NULL DEFAULT 'tree',
+  placement ENUM('tree','ground','wind','picked','held') NOT NULL DEFAULT 'tree',
   branch TINYINT DEFAULT NULL,
   started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   ended_at DATETIME
@@ -47,8 +48,10 @@ CREATE TABLE IF NOT EXISTS thoughts (
   session_id INT NOT NULL,
   dimension VARCHAR(20) NOT NULL,
   content VARCHAR(500) NOT NULL,
+  img VARCHAR(200) DEFAULT '',
   level INT DEFAULT 1,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_thoughts_session (session_id)
 );
 
 CREATE TABLE IF NOT EXISTS milestones (
@@ -58,7 +61,8 @@ CREATE TABLE IF NOT EXISTS milestones (
   title VARCHAR(10) DEFAULT '',
   note VARCHAR(500) DEFAULT '',
   snapshot JSON,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_milestones_session (session_id)
 );
 
 CREATE TABLE IF NOT EXISTS messages (
@@ -78,6 +82,7 @@ CREATE TABLE IF NOT EXISTS knocks (
   garden_user_id INT NOT NULL,
   visitor_id INT NOT NULL,
   status ENUM('pending','approved','declined') NOT NULL DEFAULT 'pending',
+  decline_reason VARCHAR(120) DEFAULT NULL,
   seen_by_visitor TINYINT NOT NULL DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   decided_at DATETIME DEFAULT NULL,
@@ -89,6 +94,16 @@ CREATE TABLE IF NOT EXISTS knock_plots (
   knock_id INT NOT NULL,
   session_id INT NOT NULL,
   PRIMARY KEY (knock_id, session_id)
+);
+
+-- 别人院里采回自己书页的那片叶子；主人收起来或设了围栏也不删，
+-- 只是按主人当下的门禁决定还能不能看
+CREATE TABLE IF NOT EXISTS session_keeps (
+  user_id INT NOT NULL,
+  session_id INT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, session_id),
+  KEY idx_keep_session (session_id)
 );
 
 INSERT INTO topics (user_id, category, name, icon, intro) VALUES

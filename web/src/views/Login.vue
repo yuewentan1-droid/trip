@@ -17,7 +17,7 @@
     <div class="auth-form roll">
       <h1><Glyph name="sprout" :size="25"/> 一亩心田</h1>
       <p class="sub">回来翻土了？</p>
-      <input v-model="form.username" maxlength="10" placeholder="用户名（十个字以内）"/>
+      <input v-model="form.username" placeholder="用户名"/>
       <input v-model="form.password" type="password" placeholder="密码" @keyup.enter="go"/>
       <button class="btn big" :disabled="busy" @click="go">{{ busy ? '土还在翻' : '进门' }}</button>
       <p class="to">头一回来？<router-link :to="{ path: '/register', query: route.query }">去开一块自己的田</router-link></p>
@@ -54,13 +54,13 @@ async function go() {
 .auth { display: grid; grid-template-columns: 1.2fr 1fr; height: 100vh; overflow: hidden; }
 .auth-art { position: relative; }
 .auth-art svg { position: absolute; inset: 0; width: 100%; height: 100%; filter: saturate(.55) sepia(.16) contrast(.93); }
-.auth-quote { position: absolute; bottom: 14%; left: 0; right: 0; text-align: center; color: #fff; font-size: 17px; text-shadow: 0 1px 4px rgba(63,58,47,.4); }
+.auth-quote { position: absolute; bottom: 14%; left: 0; right: 0; text-align: center; color: #fff; font-size: var(--fs-read); text-shadow: 0 1px 4px rgba(63,58,47,.4); }
 .auth-form { display: flex; flex-direction: column; justify-content: safe center; gap: 16px; padding: 40px 12%; }
-.auth-form h1 { font-size: 26px; }
+.auth-form h1 { font-size: var(--fs-hero); }
 .sub { color: var(--ink-soft); margin-top: -8px; }
 .auth-form input { width: 100%; }
-.btn.big { text-align: center; padding: 11px 0; font-size: 16px; }
-.to { font-size: 14px; color: var(--ink-soft); }
+.btn.big { text-align: center; padding: 11px 0; font-size: var(--fs-read); }
+.to { font-size: var(--fs-base); color: var(--ink-soft); }
 .to a { color: var(--grass-deep); border-bottom: 1px dashed var(--grass); }
 @media (max-width: 760px) { .auth { grid-template-columns: 1fr; } .auth-art { display: none; } }
 </style>

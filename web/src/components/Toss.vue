@@ -4,16 +4,18 @@ import Glyph from './Glyph.vue';
 
 // 一把花和叶子被风带走：从点下去的地方扬出去，散完就没了
 const CAST = ['leaf', 'sakura', 'blossom', 'daisy'];
-defineProps({ x: Number, y: Number });
+const props = defineProps({ x: Number, y: Number, scale: { type: Number, default: 1 } });
 const emit = defineEmits(['done']);
 
 const seeds = Array.from({ length: 7 }, (_, i) => {
   const a = -1.95 + i * .29;
+  const away = Math.sqrt(props.scale);
   return {
     g: CAST[i % 4],
-    dx: Math.cos(a) * (62 + i * 26),
-    dy: Math.sin(a) * (66 + i * 12),
-    r: (i % 2 ? 1 : -1) * (55 + i * 24)
+    dx: Math.cos(a) * (62 + i * 26) * away,
+    dy: Math.sin(a) * (66 + i * 12) * away,
+    r: (i % 2 ? 1 : -1) * (55 + i * 24),
+    size: (19 + i % 3 * 5) * props.scale
   };
 });
 
@@ -22,7 +24,7 @@ onMounted(() => setTimeout(() => emit('done'), 1180));
 
 <template>
   <div class="toss" :style="{ left: x + 'px', top: y + 'px' }">
-    <Glyph v-for="(s, i) in seeds" :key="i" class="tz" :name="s.g" :size="19 + i % 3 * 5"
+    <Glyph v-for="(s, i) in seeds" :key="i" class="tz" :name="s.g" :size="s.size"
       :style="{ '--dx': s.dx + 'px', '--dy': s.dy + 'px', '--r': s.r + 'deg', animationDelay: i * 45 + 'ms' }"/>
   </div>
 </template>

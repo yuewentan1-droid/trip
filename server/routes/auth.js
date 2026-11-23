@@ -4,9 +4,11 @@ const db = require('../db');
 const { sign, auth } = require('../auth');
 const { ok, err } = require('../util');
 
+const EXTRA_TREES_MAX = 4;
 const shape = u => ({
   id: u.id, username: u.username, nickname: u.nickname,
-  visibility: u.visibility, garden_name: u.garden_name, bio: u.bio
+  visibility: u.visibility, garden_name: u.garden_name, bio: u.bio,
+  extra_trees: Math.min(EXTRA_TREES_MAX, u.extra_trees || 0)
 });
 const chars = s => [...String(s)].length;
 
@@ -20,7 +22,8 @@ r.post('/register', async (req, res) => {
   if (dup.length) return err(res, '这名字被人占了，换一个');
   const [ret] = await db.query('INSERT INTO users (username, password, nickname) VALUES (?,?,?)',
     [username, bcrypt.hashSync(password, 10), username]);
-  const u = { id: ret.insertId, username, nickname: username, visibility: 'private', garden_name: '', bio: '' };
+  const u = { id: ret.insertId, username, nickname: username, visibility: 'private',
+    garden_name: '', bio: '', extra_trees: 0 };
   ok(res, { token: sign(u), user: u });
 });
 
@@ -33,7 +36,7 @@ r.post('/login', async (req, res) => {
 
 r.get('/me', auth, async (req, res) => {
   const [rows] = await db.query(
-    'SELECT id, username, nickname, visibility, garden_name, bio FROM users WHERE id=?', [req.uid]);
+    'SELECT id, username, nickname, visibility, garden_name, bio, extra_trees FROM users WHERE id=?', [req.uid]);
   ok(res, rows[0]);
 });
 
@@ -56,13 +59,18 @@ r.put('/me', auth, async (req, res) => {
   const garden_name = req.body.garden_name === undefined
     ? u.garden_name : String(req.body.garden_name).trim();
   if (chars(garden_name) > 10) return err(res, '田名最多十个字');
-  const bio = req.body.bio === undefined
-    ? u.bio : String(req.body.bio).trim().slice(0, 30);
+  let bio = u.bio;
+  if (req.body.bio !== undefined) {
+    bio = String(req.body.bio).trim();
+    if (chars(bio) > 30) return err(res, '篱笆上那句话最多三十个字');
+  }
+  const extra_trees = req.body.extra_trees === undefined
+    ? u.extra_trees : Math.min(EXTRA_TREES_MAX, Math.max(0, Number(req.body.extra_trees) || 0));
   const published_at = visibility === 'public' && u.visibility !== 'public' ? new Date() : u.published_at;
   await db.query(
-    'UPDATE users SET nickname=?, visibility=?, garden_name=?, bio=?, published_at=? WHERE id=?',
-    [nickname, visibility, garden_name, bio, published_at, req.uid]);
-  ok(res, { ...shape(u), nickname, visibility, garden_name, bio });
+    'UPDATE users SET nickname=?, visibility=?, garden_name=?, bio=?, extra_trees=?, published_at=? WHERE id=?',
+    [nickname, visibility, garden_name, bio, extra_trees, published_at, req.uid]);
+  ok(res, { ...shape(u), nickname, visibility, garden_name, bio, extra_trees });
 });
 
 r.put('/password', auth, async (req, res) => {

@@ -38,7 +38,58 @@
   --r-soft: 18px 26px 15px 24px / 24px 15px 26px 17px;
 
   --font-main: "LXGW WenKai", "Kaiti SC", "STKaiti", "KaiTi", serif;
+
+  /* 字阶只留八档：越往下越安静，同一件事全站只用一个字号 */
+  --fs-xs: 16px;
+  --fs-sm: 17px;
+  --fs-md: 18px;
+  --fs-base: 20px;
+  --fs-read: 22px;
+  --fs-head: 25px;
+  --fs-title: 28px;
+  --fs-hero: 35px;
 }
+
+/* 天黑：纸色取自林间夜里的松绿与苔黄，不用那种一眼假的深蓝 */
+body[data-night="1"] {
+  --paper: #222D31;
+  --paper-2: #29363A;
+  --card: #273337;
+  --ink: #D3C6AA;
+  --ink-soft: #A5B0A4;
+  --ink-faint: #7E8B82;
+  --graphite: #7C897E;
+
+  --grass: #8FAE78;
+  --grass-deep: #A7C080;
+  --wheat: #DBBC7F;
+  --dry: #C4B17C;
+  --wood: #C6AA85;
+  --clay: #D29474;
+  --sky: #7FBBB3;
+  --lilac: #B0A2B7;
+  --sakura: #CFA69C;
+
+  --line: #3F4F52;
+  --shadow: 0 3px 16px rgba(3, 8, 8, .34);
+  --fence: #8D8062;
+  --ember: #E69875;
+  --emboss: 0 1px 3px rgba(3, 8, 8, .28);
+  --emboss-lift: 0 4px 14px rgba(3, 8, 8, .38);
+  background:
+    radial-gradient(92% 64% at 82% 4%, rgba(96, 120, 112, .2), transparent 62%),
+    linear-gradient(180deg, #1A2226 0%, #212C30 38%, #293637 72%, #303D3C 100%);
+}
+body[data-night="1"]::after {
+  background: radial-gradient(120% 100% at 50% 42%, transparent 46%, rgba(3, 9, 8, .4) 100%);
+}
+/* 只在换天的那一下让所有颜色一起走，平时不拖慢任何交互 */
+body.night-fade, body.night-fade * {
+  transition-property: background-color, border-color, color, fill, stroke, opacity !important;
+  transition-duration: 1.8s !important;
+  transition-timing-function: ease !important;
+}
+body.night-fade::after { transition: background 1.8s ease !important; }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 /* 一整页就是一张摊开的纸：不滚，长内容自己在框里滚，滚条藏起来 */
@@ -47,6 +98,7 @@ body {
   font-family: var(--font-main);
   color: var(--ink);
   background: var(--paper);
+  font-size: var(--fs-base);
   line-height: 1.8;
   letter-spacing: .02em;
   -webkit-font-smoothing: antialiased;
@@ -162,7 +214,7 @@ textarea { resize: none; }
 .leaf {
   display: inline-block;
   color: var(--ink);
-  font-size: 12.5px;
+  font-size: var(--fs-md);
   line-height: 1.6;
   padding: 0 10px 1px 8px;
   border-radius: 3px 14px 4px 12px / 12px 4px 14px 5px;
@@ -173,11 +225,14 @@ textarea { resize: none; }
 .mask {
   position: fixed;
   inset: 0;
-  background: rgba(63, 58, 47, .32);
+  background:
+    radial-gradient(64% 54% at 50% 42%, rgba(250, 246, 236, .05), transparent 72%),
+    rgba(63, 58, 47, .34);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 40;
+  /* 编辑、落墨、档案这些纸压在页头和动画之上，天黑也不让底下的框和导航栏探出来 */
+  z-index: 65;
 }
 .modal {
   position: relative;
@@ -185,17 +240,52 @@ textarea { resize: none; }
   max-height: 82vh;
   overflow: auto;
   scrollbar-width: none;
-  background: var(--paper);
+  /* 一张旧纸下面还压着两张：绿是藤影，褐是土色，都在纸里不在纸上 */
+  background:
+    radial-gradient(120% 80% at 100% 0%, rgba(126, 154, 95, .085), transparent 56%),
+    radial-gradient(90% 62% at 0% 100%, rgba(139, 107, 74, .055), transparent 62%),
+    var(--paper);
   border-radius: var(--r-soft);
   /* 自己就是张裁下来的纸：边直接描在纸上，因为 overflow:auto 会把 ::after 裁掉 */
   border: 1.5px dashed rgba(150, 133, 100, .55);
-  box-shadow: 0 14px 34px rgba(63, 58, 47, .14);
+  box-shadow:
+    inset 0 0 0 4px color-mix(in srgb, var(--paper) 86%, transparent),
+    inset 0 0 0 5px rgba(150, 133, 100, .2),
+    0 3px 0 -1px var(--paper-2),
+    0 5px 0 -2px rgba(150, 133, 100, .18),
+    0 16px 38px rgba(63, 58, 47, .16);
   padding: 24px 28px 22px;
   transform: rotate(-.4deg);
 }
-.modal h3 { margin-bottom: 16px; font-weight: normal; letter-spacing: .04em; }
+/* 题头后面拖一根手画的藤线，末了结一片叶；话长了线就收短，不挤字 */
+.modal h3::after {
+  content: '';
+  display: inline-block;
+  width: 30px;
+  flex: 1 1 30px;
+  min-width: 14px;
+  height: 9px;
+  margin: 0 2px 0 8px;
+  vertical-align: middle;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 12'%3E%3Cpath d='M2 7C26 3 44 10 68 6C90 2 112 9 132 5' fill='none' stroke='%238B6B4A' stroke-width='1.2' stroke-linecap='round' opacity='.48'/%3E%3Cpath d='M132 5C125 0 117-1 110 1C116 6 124 8 132 5Z' fill='%237E9A5F' opacity='.55'/%3E%3C/svg%3E") right center / contain no-repeat;
+  opacity: .8;
+}
+body[data-night="1"] .modal {
+  border-color: rgba(148, 160, 176, .24);
+  background:
+    radial-gradient(120% 80% at 100% 0%, rgba(143, 174, 120, .07), transparent 56%),
+    radial-gradient(90% 62% at 0% 100%, rgba(198, 170, 133, .04), transparent 62%),
+    var(--paper);
+  box-shadow:
+    inset 0 0 0 4px color-mix(in srgb, var(--paper) 86%, transparent),
+    inset 0 0 0 5px rgba(148, 160, 176, .12),
+    0 3px 0 -1px var(--paper-2),
+    0 5px 0 -2px rgba(0, 0, 0, .22),
+    0 16px 38px rgba(5, 9, 15, .34);
+}
+.modal h3 { margin-bottom: 16px; font-size: var(--fs-head); font-weight: normal; letter-spacing: .04em; }
 .modal .f-item { margin-bottom: 14px; }
-.modal .f-item label { display: block; font-size: 13px; color: var(--ink-soft); margin-bottom: 3px; }
+.modal .f-item label { display: block; font-size: var(--fs-md); color: var(--ink-soft); margin-bottom: 3px; }
 .m-acts { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
 
 .top-nav {
@@ -204,21 +294,36 @@ textarea { resize: none; }
   justify-content: space-between;
   padding: 16px 30px 12px;
   position: relative;
-  z-index: 10;
+  z-index: 18;
+  /* 空着的题头不拦风；里头的门牌和按钮照旧点得中 */
+  pointer-events: none;
 }
-.top-nav .logo { font-size: 19px; display: flex; align-items: center; gap: 8px; }
+.top-nav > * { pointer-events: auto; }
+.top-nav .logo { font-size: var(--fs-head); display: flex; align-items: center; gap: 8px; }
 .top-nav nav { display: flex; align-items: center; gap: 16px; }
-.top-nav .link { color: var(--ink-soft); font-size: 14px; transition: color .3s; }
+.top-nav .link { color: var(--ink-soft); font-size: var(--fs-base); transition: color .3s; }
 .top-nav .link:hover { color: var(--wood); }
 .avatar {
-  display: inline-grid;
-  place-items: center;
-  width: 29px;
-  height: 31px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 42px;
+  padding-bottom: 1px;
+  line-height: 1;
   border-radius: 46% 54% 50% 50% / 54% 46% 52% 48%;
   background: rgba(79, 107, 58, .16);
   color: var(--grass-deep);
-  font-size: 14px;
+  font-size: var(--fs-head);
+}
+
+/* 窄屏顶栏：宁可让两样东西分两行站着，也别把字挤成一竖排 */
+@media (max-width: 620px) {
+  .top-nav { flex-wrap: wrap; gap: 2px 10px; padding: 8px 12px 4px; }
+  .top-nav .logo { white-space: nowrap; }
+  .top-nav nav { flex-wrap: wrap; justify-content: flex-end; gap: 9px; margin-left: auto; }
+  .top-nav nav > * { flex: none; white-space: nowrap; }
+  .top-nav nav .btn-ghost { position: absolute; right: 12px; top: 8px; }
 }
 
 .toast {
@@ -227,17 +332,23 @@ textarea { resize: none; }
   bottom: 44px;
   transform: translate(-50%, 12px) rotate(-.9deg);
   opacity: 0;
-  background: var(--card);
+  background:
+    radial-gradient(100% 120% at 0% 0%, rgba(126, 154, 95, .09), transparent 62%),
+    var(--card);
   color: var(--ink);
-  padding: 8px 20px 9px;
+  padding: 8px 20px 9px 16px;
   border: 1.3px dashed rgba(139, 107, 74, .45);
   border-radius: var(--r-c);
-  box-shadow: 0 6px 16px rgba(94, 83, 64, .16);
-  font-size: 14px;
+  box-shadow: 0 6px 16px rgba(94, 83, 64, .16),
+    inset 0 0 0 3px var(--card), inset 0 0 0 4px rgba(139, 107, 74, .13);
+  font-size: var(--fs-base);
   letter-spacing: .04em;
   z-index: 99;
   transition: opacity .45s, transform .45s;
 }
+.toast::before { content: ''; display: inline-block; width: 9px; height: 13px; margin-right: 8px;
+  border-radius: 88% 12% 88% 12%; background: var(--grass); opacity: .64;
+  transform: rotate(-26deg); vertical-align: -1px; }
 .toast.on { opacity: 1; transform: translate(-50%, 0) rotate(-.9deg); }
 
 .loading { padding: 70px 0; text-align: center; color: var(--ink-faint); letter-spacing: 6px; }
@@ -339,6 +450,15 @@ textarea { resize: none; }
 .wavy svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .wavy path { fill: none; stroke: var(--graphite); stroke-width: 1.2; stroke-linecap: round; opacity: .38;
   vector-effect: non-scaling-stroke; }
+
+/* 夜里的墨也还是墨，只是调淡，不让哪一笔在深纸上消失 */
+body[data-night="1"][data-penzh] { --pen-ink: #D8D3C2; }
+body[data-night="1"] .p-xingkai, body[data-night="1"] .p-tongqu { --pen-ink: #DAD5C4; }
+body[data-night="1"] .p-shoujin, body[data-night="1"] .p-roundhand,
+body[data-night="1"] .p-cursive, body[data-night="1"] .p-calligraphy { --pen-ink: #D2CCBA; }
+body[data-night="1"] .p-kuangcao { --pen-ink: #E1DBC9; }
+body[data-night="1"] .p-typewriter { --pen-ink: #C9C4B4; }
+body[data-night="1"] .p-tuimo, body[data-night="1"] .p-pencil { --pen-ink: #989687; }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition-duration: .01s !important; }

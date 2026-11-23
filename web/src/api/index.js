@@ -34,7 +34,11 @@ export const api = {
   addTopic: d => http.post('/topics', d),
   updTopic: (id, d) => http.put(`/topics/${id}`, d),
   delTopic: id => http.delete(`/topics/${id}`),
-  upload: data => http.post('/upload', { data }),
+  upload: file => {
+    const form = new FormData();
+    form.append('file', file);
+    return http.post('/upload', form);
+  },
 
   sessions: () => http.get('/sessions'),
   newSession: d => http.post('/sessions', d),
@@ -42,6 +46,8 @@ export const api = {
   updSession: (id, d) => http.put(`/sessions/${id}`, d),
   delSession: id => http.delete(`/sessions/${id}`),
   finish: (id, d = {}) => http.post(`/sessions/${id}/finish`, d),
+  pick: id => http.post(`/sessions/${id}/pick`),
+  place: (id, placement) => http.post(`/sessions/${id}/place`, { placement }),
 
   addThought: (id, d) => http.post(`/sessions/${id}/thoughts`, d),
   updThought: (id, d) => http.put(`/thoughts/${id}`, d),
@@ -54,15 +60,19 @@ export const api = {
   visits: params => http.get('/visits', { params }),
   garden: id => http.get(`/garden/${id}`, { silent: true }),
   gardenSession: (id, sid) => http.get(`/garden/${id}/session/${sid}`, { silent: true }),
-  gardenMessages: (id, page = 1) => http.get(`/garden/${id}/messages`, { params: { page }, silent: true }),
+  gardenMessages: (id, page = 1, q = '') =>
+    http.get(`/garden/${id}/messages`, { params: { page, q }, silent: true }),
   addMessage: (id, d) => http.post(`/garden/${id}/messages`, d, { silent: true }),
   replyMessage: (id, d) => http.put(`/messages/${id}/reply`, d, { silent: true }),
   delMessage: id => http.delete(`/messages/${id}`, { silent: true }),
-  inbox: (page = 1) => http.get('/messages/inbox', { params: { page }, silent: true }),
-  outbox: (page = 1) => http.get('/messages/outbox', { params: { page }, silent: true }),
+  inbox: () => http.get('/messages/inbox', { silent: true }),
+  outbox: () => http.get('/messages/outbox', { silent: true }),
   notices: () => http.get('/notices', { silent: true }),
   knocks: () => http.get('/knocks', { silent: true }),
   knock: id => http.post(`/garden/${id}/knock`, {}, { silent: true }),
   decideKnock: (id, d) => http.post(`/knocks/${id}/decide`, d, { silent: true }),
-  seenKnock: id => http.post(`/knocks/${id}/seen`, {}, { silent: true })
+  seenKnock: id => http.post(`/knocks/${id}/seen`, {}, { silent: true }),
+  keep: (gid, sid) => http.post(`/garden/${gid}/session/${sid}/keep`, {}, { silent: true }),
+  unkeep: sid => http.delete(`/keeps/${sid}`, { silent: true }),
+  keeps: () => http.get('/keeps', { silent: true })
 };
