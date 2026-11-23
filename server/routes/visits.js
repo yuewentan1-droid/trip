@@ -314,7 +314,7 @@ r.get('/notices', auth, async (req, res) => {
          AND (SELECT r.user_id FROM message_replies r WHERE r.message_id=m.id
            ORDER BY r.id DESC LIMIT 1) = ?) AS replied,
        (SELECT COUNT(*) FROM messages WHERE from_user_id=?) AS sent,
-       (SELECT COUNT(*) FROM message_replies r JOIN messages m ON m.id=r.message_id
+       (SELECT COUNT(DISTINCT r.user_id) FROM message_replies r JOIN messages m ON m.id=r.message_id
          WHERE m.from_user_id=? AND r.user_id<>?) AS replies,
        (SELECT COUNT(DISTINCT visitor_id) FROM knocks WHERE garden_user_id=? AND status='pending') AS knocks,
        (SELECT COUNT(DISTINCT garden_user_id) FROM knocks WHERE visitor_id=? AND status='approved' AND seen_by_visitor=0) AS approvals`,

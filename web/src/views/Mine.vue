@@ -215,7 +215,7 @@ async function del(s) {
         </button>
         <button v-if="notice.replies" class="nav-note" title="你留出去的话，有人回了"
           @click="openInbox('notes', 'out')">
-          <Glyph name="pen" :size="13"/> 篱上回音 {{ notice.replies }} 句
+          <Glyph name="pen" :size="13"/> 篱上回音 {{ notice.replies }} 人
         </button>
         <button v-if="notice.doors" class="nav-note door" @click="openInbox('knocks')">
           <Glyph name="bell" :size="13"/> {{ notice.doors }} 处动静

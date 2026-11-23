@@ -24,6 +24,7 @@ const user = useUser();
 const replying = ref(0);
 const openNote = ref(null);
 const nwBody = ref(null);
+const draftBody = ref(null);
 const draft = ref('');
 const sending = ref(false);
 
@@ -156,7 +157,7 @@ async function reply(m) {
             </div>
             <VineScroll :el="nwBody"/>
           </div>
-          <div v-if="(erase && mine(openNote)) || (canReplyTo(openNote) && replying !== openNote.id)" class="nw-foot">
+          <div v-if="replying !== openNote.id && ((erase && mine(openNote)) || canReplyTo(openNote))" class="nw-foot">
             <button v-if="erase && mine(openNote)" class="n-erase" @click="wipe(openNote)">抹掉</button>
             <button v-if="canReplyTo(openNote) && replying !== openNote.id" class="n-back" @click="begin(openNote)">
               {{ openNote.replies?.length ? '再回一句' : '回一句' }}
@@ -165,8 +166,14 @@ async function reply(m) {
           <Transition name="reply">
             <form v-if="canReplyTo(openNote) && replying === openNote.id" class="n-form nw-form"
               @submit.prevent="reply(openNote)" @click.stop>
-              <textarea v-model="draft" rows="2" maxlength="100" placeholder="回一句，别端着…" aria-label="回复留言"/>
+              <div class="n-draft">
+                <textarea ref="draftBody" v-model="draft" rows="2" maxlength="100"
+                  placeholder="回一句，别端着…" aria-label="回复留言"/>
+                <VineScroll :el="draftBody"/>
+              </div>
               <div class="n-acts">
+                <button v-if="erase && mine(openNote)" type="button" class="n-erase"
+                  @click="wipe(openNote)">抹掉</button>
                 <Spread v-model="draft" :max="100" placeholder="回一句，别端着…"/>
                 <span class="n-num">{{ draftLen }}/100</span>
                 <button type="button" class="n-x" @click="stopReply">先不回</button>
@@ -266,10 +273,16 @@ async function reply(m) {
 .note-pop-enter-from .note-window, .note-pop-leave-to .note-window {
   transform: rotate(-.3deg) translateY(10px) scale(.985); }
 .n-form { margin-top: 8px; padding-top: 8px; border-top: 1.1px dashed rgba(150, 133, 100, .38); }
+.n-draft { position: relative; }
 .n-form textarea { display: block; width: 100%; min-height: 50px; font-size: var(--fs-base); line-height: 1.8;
-  border: none; background: transparent; color: var(--ink); padding: 2px 0 5px; }
+  border: none; background: transparent; color: var(--ink); padding: 2px 22px 5px 0;
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.n-form textarea::-webkit-scrollbar { display: none; }
 .n-form textarea:focus { outline: none; }
-.n-acts { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 4px; }
+.n-form textarea::placeholder { font-size: var(--fs-sm); letter-spacing: .04em; color: var(--ink-faint); }
+.n-acts { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap;
+  gap: 6px 12px; margin-top: 4px; white-space: nowrap; }
+.n-acts .n-erase { opacity: .78; }
 .n-acts :deep(.spread-open) { margin-right: auto; }
 .n-num { font-size: var(--fs-sm); color: var(--ink-faint); letter-spacing: .04em; }
 .n-x { font-size: var(--fs-sm); color: var(--ink-faint); }
@@ -306,6 +319,7 @@ body[data-night="1"] .note-window { border-color: rgba(148, 160, 176, .24);
     max-height: calc(100vh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
   .nw-say { font-size: var(--fs-base); }
+  .n-acts { gap: 6px; }
 }
 @media (max-width: 420px) {
   .notes { grid-template-columns: 1fr; }

@@ -88,7 +88,6 @@ async function password() {
           <button :class="{ on: !fencePrivate }" @click="fencePrivate = false">谁路过都看得见</button>
           <button :class="{ on: fencePrivate }" @click="fencePrivate = true">只给自己和说过话的人</button>
         </div>
-        <p v-if="fencePrivate" class="pf-hint">收起后，路过的只看得见自己那几句。</p>
       </div>
     </section>
 
@@ -115,17 +114,18 @@ async function password() {
 .pf-block { padding: 4px 2px 2px; }
 .pf-user { display: flex; align-items: center; gap: 6px; font-size: var(--fs-md); color: var(--ink-faint);
   letter-spacing: .05em; margin-bottom: 10px; }
-.pf-item { margin-bottom: 13px; }
-.pf-item label { display: block; font-size: var(--fs-md); color: var(--ink-soft); margin-bottom: 2px; }
+.pf-item { margin-bottom: 10px; }
+.pf-item label { display: block; font-size: var(--fs-md); color: var(--ink-soft); line-height: 1.4; margin-bottom: 2px; }
+/* 纸上的字挨得紧些，五格填完一屏就放得下 */
+.pf-item input { line-height: 1.35; padding: 2px 4px 2px; }
 /* 两句话挑一句，选中的那条拿草汁描一描 */
 .pf-pick { display: flex; flex-wrap: wrap; gap: 4px 16px; }
-.pf-pick button { font-size: var(--fs-md); color: var(--ink-faint); letter-spacing: .04em;
+.pf-pick button { font-size: var(--fs-md); color: var(--ink-faint); letter-spacing: .04em; line-height: 1.5;
   padding: 2px 1px 4px; border-bottom: 1.2px dashed transparent; transition: color .3s, border-color .3s; }
 .pf-pick button:hover { color: var(--wood); }
 .pf-pick button.on { color: var(--grass-deep); border-bottom-color: rgba(79, 107, 58, .5); }
-.pf-hint { font-size: var(--fs-sm); color: var(--ink-faint); letter-spacing: .04em; margin-top: 3px; }
 .pf-acts { display: flex; justify-content: flex-end; gap: 12px; margin-top: 4px; }
-.pf-pass { margin-top: 16px; padding-top: 14px; border-top: 1.2px dashed rgba(150, 133, 100, .38); }
+.pf-pass { margin-top: 10px; padding-top: 9px; border-top: 1.2px dashed rgba(150, 133, 100, .38); }
 .pf-pass h4 { display: flex; align-items: center; gap: 6px; font-size: var(--fs-base); font-weight: normal;
-  color: var(--wood); letter-spacing: .06em; margin-bottom: 9px; }
+  color: var(--wood); letter-spacing: .06em; margin-bottom: 6px; }
 </style>

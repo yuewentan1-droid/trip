@@ -194,7 +194,7 @@ async function enter(k) {
       <button :class="{ on: tab === 'notes' && noteScope === 'out' }" @click="showNotes('out')">
         <Glyph name="pen" :size="17"/> 我留的
         <i v-if="notice.sent" class="n-count">{{ notice.sent }}</i>
-        <i v-if="notice.replies" class="n-count echo">回音 {{ notice.replies }}</i>
+        <i v-if="notice.replies" class="n-count echo">回音 {{ notice.replies }} 人</i>
       </button>
       <button :class="{ on: tab === 'notes' && noteScope === 'old' }" @click="showNotes('old')">
         <Glyph name="daisy" :size="17"/> 旧回音

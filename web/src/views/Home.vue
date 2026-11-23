@@ -401,7 +401,7 @@ onMounted(() => {
           :to="'/garden/' + user.user.id">回我的小院</router-link>
         <span v-if="notice.replies || notice.words || notice.doors || notice.approvals || notice.declined" class="notice-line">
           <button v-if="notice.replies" @click="openInbox('notes', 'out')">
-            篱上回音 {{ notice.replies }} 句
+            篱上回音 {{ notice.replies }} 人
           </button>
           <i v-if="notice.replies && (notice.words || notice.doors || notice.approvals || notice.declined)">·</i>
           <button v-if="notice.words" @click="openInbox('notes')">
@@ -601,10 +601,12 @@ onMounted(() => {
 .nav-link:hover { color: var(--wood); }
 .nav-link.quiet { color: var(--ink-faint); }
 
-/* 题头只是纸上的字，别挡住风里飘到这儿歇脚的种子 */
-.h-hero { position: relative; z-index: 20; pointer-events: none; flex: none; text-align: center; padding: 16px 20px 4px; }
+/* 题头压在藤上：描述只铺自己那么宽的一张纸，藤不穿过字，也不挡住手 */
+.h-hero { position: relative; z-index: 22; pointer-events: none; flex: none; text-align: center; padding: 16px 20px 4px; }
 .h-hero h1 { font-size: var(--fs-hero); font-weight: normal; letter-spacing: .1em; filter: url(#ink-grain); }
-.h-hero p { color: var(--ink-soft); margin-top: 2px; font-size: var(--fs-base); }
+.h-hero p { width: fit-content; max-width: 100%; margin: 2px auto 0; padding: 1px 14px 3px;
+  color: var(--ink-soft); font-size: var(--fs-base);
+  background: color-mix(in srgb, var(--paper) 86%, transparent); }
 
 /* 类目弹窗跟着名字长短裁纸，题头一行写完 */
 .topic-modal { max-width: 92vw; }
