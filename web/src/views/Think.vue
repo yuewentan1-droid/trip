@@ -637,7 +637,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', offGuide, true
   font-size: calc(30px * var(--ui-scale)); font-weight: 600; letter-spacing: .05em;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .w-topic { color: var(--wood); }
-.w-name b { font-weight: 600; letter-spacing: .05em; }
+.w-name b { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; letter-spacing: .05em; }
 .w-meta { font-size: var(--fs-md); color: var(--ink-faint); }
 .seal { display: inline-flex; align-items: center; gap: 7px; color: var(--wood); font-size: var(--fs-base); font-weight: 600;
   padding: 7px 17px 8px; border-radius: var(--r-c); box-shadow: inset 0 0 0 1.3px rgba(139, 107, 74, .44); transition: .4s; }
@@ -853,7 +853,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', offGuide, true
 
 @media (max-width: 1220px) {
   .w-grid, .w-grid.no-layer { grid-template-columns: 1fr; grid-auto-rows: max-content; align-content: start;
-    gap: 20px; overflow-y: auto; scrollbar-width: none; }
+    gap: 20px; overflow-x: clip; overflow-y: auto; scrollbar-width: none; }
   .w-grid.reading { grid-template-columns: 1fr; }
   .w-grid.reading .w-left { display: none; }
   .w-main.reading { min-height: 250px; }
@@ -874,9 +874,13 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', offGuide, true
   .w-top { gap: 9px; padding: max(9px, env(safe-area-inset-top)) max(13px, env(safe-area-inset-right)) 8px 13px; }
   .w-name { font-size: calc(23px * var(--ui-scale)); gap: 7px; }
   .w-meta, .hint { display: none; }
+  .penbtn { padding: 2px 4px; }
+  .penbtn :deep(.gl) { --s: 32px !important; }
   .place-ways { flex-direction: column; }
   .way { flex-direction: row; gap: 9px; padding: 10px 12px; text-align: left; }
   .way span { text-align: left; }
+  .place-modal { padding: 20px 18px 18px; }
+  .place-modal .m-h { font-size: var(--fs-head); }
   .seal { padding: 4px 10px 5px; font-size: var(--fs-md); }
   .w-q { padding: 8px 16px 0; font-size: var(--fs-base); }
   .well-bar { gap: 4px; }
@@ -886,5 +890,12 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', offGuide, true
   .stream { padding-left: 20px; }
   .mouth { margin-left: 0; }
   .modal { padding: 20px 18px 18px; }
+}
+@media (max-width: 480px) {
+  .w-topic { display: none; }
+  .w-name { font-size: calc(21px * var(--ui-scale)); }
+  .w-name :deep(.gl) { display: none; }
+  .seal { gap: 5px; padding: 4px 8px 5px; font-size: var(--fs-sm); }
+  .w-top .btn-ghost { padding: 4px 8px 5px; font-size: var(--fs-sm); }
 }
 </style>

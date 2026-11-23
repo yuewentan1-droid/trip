@@ -343,10 +343,10 @@ main { flex: 1; min-width: 0; min-height: 0; padding: 0 max(24px, 4vw) 18px max(
   .r-body { grid-column: 2; }
   .r-photo { grid-column: 1 / -1; justify-self: end; margin: 0; }
   .r-pick { left: 72px; right: 14px; bottom: calc(102px + env(safe-area-inset-bottom)); width: auto;
-    flex-wrap: wrap; gap: 7px 9px; padding: 11px 12px 12px 14px; }
+    flex-wrap: wrap; gap: 4px 9px; padding: 9px 12px 10px 14px; }
   .r-pick > div { flex: 1 1 calc(100% - 34px); }
   .r-pick b { font-size: calc(17px * var(--ui-scale)); }
-  .r-pick span { font-size: calc(17px * var(--ui-scale)); }
+  .r-pick span { display: none; }
   .r-pick button, .r-pick a { font-size: calc(19px * var(--ui-scale)); margin-left: 29px; }
 }
 @media (max-width: 420px) {

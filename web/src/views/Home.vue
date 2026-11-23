@@ -800,7 +800,7 @@ onMounted(() => {
   /* 藤先走完，树再接在下面；不再钉在窗口上压着类目 */
   .tree { position: relative; order: 2; flex: 0 0 auto; width: calc(260px * var(--tree-grow, 1) * var(--tree-boost, 1)); height: auto;
     margin: 12px auto 0 5vw; top: auto; bottom: auto; left: auto; opacity: .75; transform: none; }
-  .tree:not(.tree-0) { left: auto; top: auto; width: calc(210px * var(--tree-grow, 1) * var(--tree-boost, 1)); height: auto; margin: 22px 5vw 0 0; order: 2; }
+  .tree:not(.tree-0) { left: auto; top: auto; bottom: auto; width: calc(210px * var(--tree-grow, 1) * var(--tree-boost, 1)); height: auto; margin: 22px 5vw 0 0; order: 2; }
   .shed { display: none; }
   /* 藤走满整行，两列记号顺着藤垂下来 */
   .vine-field { position: relative; inset: auto; flex: 0 0 100%; width: 100%; padding-top: 2px; }
@@ -840,11 +840,18 @@ onMounted(() => {
 @media (max-width: 620px) {
   .home .top-nav nav { width: 100%; justify-content: flex-start; }
   .notice-line { flex-wrap: wrap; white-space: normal; font-size: var(--fs-md); }
-  .seed-modal { padding: 22px 18px 18px; }
-  .seed-modal .m-h { font-size: var(--fs-head); white-space: normal; }
+  .seed-modal { padding: 18px 16px 16px; }
+  .seed-modal .m-h { font-size: var(--fs-head); white-space: normal; margin-bottom: 12px; }
+  .seed-modal .f-item { margin-bottom: 11px; }
   .seed-modal input { font-size: var(--fs-base); }
-  .zone-pick button { font-size: var(--fs-base); padding: 5px 13px 6px; }
-  .thumb { width: 32px; height: 32px; }
+  .zone-pick { gap: 6px; margin-top: 4px; }
+  .zone-pick button { gap: 4px; font-size: var(--fs-sm); padding: 4px 7px 5px; }
+  .zone-pick button :deep(.gl) { --s: 21px !important; }
+  .seed-pick { gap: 6px 4px; margin: 7px 0 2px; }
+  .pick { padding: 3px; }
+  .pick :deep(.gl) { --s: 26px !important; }
+  .thumb { width: 26px; height: 26px; }
+  .seed-modal .m-acts { margin-top: 10px; }
 }
 @media (max-width: 420px) {
   .h-hero { padding: 6px 10px 0; }
