@@ -23,7 +23,6 @@ const tab = ref(props.tab);
 const noteScope = ref(props.scope);
 const notes = ref([]);
 const history = ref([]);
-const page = ref(1);
 const loading = ref(false);
 const incoming = ref([]);
 const opened = ref([]);
@@ -32,11 +31,8 @@ const declined = ref([]);
 const refusing = ref(0);
 const refuseWhy = ref('');
 const busy = ref(false);
-// 一页挂三条，翻页看后面的；回过的收到旧回音里，不再占着新话的位置
+// 收到的和旧回音都整摞摊在一张纸上，话多就顺着藤往下读
 const base = computed(() => noteScope.value === 'old' ? history.value : notes.value);
-const pages = computed(() => Math.max(1, Math.ceil(base.value.length / 3)));
-const pageNo = computed(() => Math.min(page.value, pages.value));
-const pageNotes = computed(() => base.value.slice((pageNo.value - 1) * 3, pageNo.value * 3));
 const knockItems = computed(() => [
   ...incoming.value.map(k => ({ k, kind: 'in' })),
   ...opened.value.map(k => ({ k, kind: 'open' })),
@@ -68,7 +64,6 @@ async function loadNotes() {
     const list = d.list || [];
     notes.value = noteScope.value === 'out' ? list : list.filter(m => !m.reply);
     history.value = noteScope.value === 'out' ? [] : list.filter(m => m.reply);
-    page.value = 1;
   } finally {
     loading.value = false;
   }
@@ -119,15 +114,11 @@ watch(tab, () => {
   if (!props.open) return;
   loadTab();
 });
-watch(noteScope, () => {
-  page.value = 1;
-});
 
 function showNotes(scope) {
   if (tab.value === 'notes' && noteScope.value === scope) return;
   const here = tab.value === 'notes';
   noteScope.value = scope;
-  page.value = 1;
   if (here) loadNotes();
   else tab.value = 'notes';
 }
@@ -137,13 +128,11 @@ function showKnocks() {
 async function erase(m) {
   await api.delMessage(m.id);
   notes.value = notes.value.filter(x => x.id !== m.id);
-  page.value = Math.min(page.value, pages.value);
   notice.load();
 }
 function replied(m) {
   const i = notes.value.findIndex(x => x.id === m.id);
   if (i > -1) history.value.unshift(notes.value.splice(i, 1)[0]);
-  page.value = Math.min(page.value, pages.value);
   notice.load();
 }
 function openGarden(k) {
@@ -211,13 +200,12 @@ async function enter(k) {
     </nav>
 
     <template v-if="tab === 'notes'">
-      <MessageNotes :list="pageNotes" :owner="noteScope !== 'out'" :can-reply="noteScope === 'in'"
+      <MessageNotes :list="base" :owner="noteScope !== 'out'" :can-reply="noteScope === 'in'"
         :hist="noteScope === 'old'"
         :erase="noteScope === 'out'" rows
         :empty="noteScope === 'out' ? '你还没在别人篱笆上留过话。'
           : noteScope === 'old' ? '还没有回过的话，旧回音里空着。' : ''"
         @erase="erase" @replied="replied"/>
-      <FieldPager v-if="pages > 1" :page="pageNo" :pages="pages" @go="page = $event"/>
     </template>
 
     <template v-else>

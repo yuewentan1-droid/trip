@@ -87,6 +87,8 @@ async function reply(m) {
           <span class="n-name" :title="m.nickname">{{ m.nickname }}</span>
           <span class="n-when">{{ said(m.created_at) }}</span>
         </header>
+        <p class="nr-say">{{ m.content }}</p>
+        <p v-if="m.reply" class="nr-reply"><b>{{ owner ? '你' : '主人' }}回：</b>{{ m.reply }}</p>
       </div>
       <div class="nr-acts" @click.stop>
         <button class="n-open" @click="openNote = m">
@@ -197,7 +199,7 @@ async function reply(m) {
 /* 篱笆上的话按行排，和敲门一个脾气：人脸在左，话在中间，手脚收在右边 */
 .notes.rows { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 4px 0 8px; }
 .note-row { --paper-bed: color-mix(in srgb, var(--card) 46%, var(--paper-2));
-  display: flex; align-items: center; gap: 10px; padding: 10px 12px 11px;
+  display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px 11px;
   background: var(--paper-bed); border: 1.1px dashed rgba(150, 133, 100, .38);
   border-radius: var(--r-a); cursor: pointer; transition: background .3s, box-shadow .3s; }
 .note-row:hover { box-shadow: var(--emboss); }
@@ -205,7 +207,12 @@ async function reply(m) {
 .note-row.old { background: color-mix(in srgb, var(--grass) 12%, var(--paper-bed)); }
 .note-row .n-face { width: 29px; height: 30px; }
 .nr-main { flex: 1; min-width: 0; }
-.nr-acts { display: flex; align-items: center; gap: 12px; flex: none; }
+/* 篱笆上挂的是话本身，不只是谁来过；回过的也一并晾在这儿 */
+.nr-say { margin-top: 5px; font-size: var(--fs-base); line-height: 1.7; letter-spacing: .01em;
+  color: var(--ink); white-space: pre-wrap; word-break: break-word; }
+.nr-reply { margin-top: 5px; font-size: var(--fs-sm); line-height: 1.7; color: var(--ink-soft); }
+.nr-reply b { font-weight: normal; color: var(--grass-deep); }
+.nr-acts { display: flex; align-items: center; gap: 12px; flex: none; padding-top: 2px; }
 .nr-acts .n-open { margin-right: 0; opacity: 1; }
 .notes.rows .n-empty { padding: 18px 0 12px; }
 /* 把信纸从篱笆上取下来，摊到眼前；话长纸就宽，长得过了头就在纸里挪 */
@@ -217,6 +224,7 @@ async function reply(m) {
   --fs-md: calc(21px * var(--ui-scale)); --fs-base: calc(23px * var(--ui-scale)); --fs-read: calc(25px * var(--ui-scale));
   position: relative; display: flex; flex-direction: column; font-size: var(--fs-base);
   width: min(var(--w), 100%);
+  max-height: calc(100vh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   max-height: calc(100dvh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   padding: 22px 26px 16px; background: var(--paper);
   border: 1.5px dashed rgba(150, 133, 100, .55);
@@ -284,6 +292,7 @@ body[data-night="1"] .note-window { border-color: rgba(148, 160, 176, .24);
   .note-mask { padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
     calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left)); }
   .note-window { width: min(var(--w), 100%); padding: 17px 16px 13px;
+    max-height: calc(100vh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
   .nw-say { font-size: var(--fs-base); }
 }

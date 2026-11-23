@@ -181,11 +181,11 @@ h1 { font-size: var(--fs-hero); line-height: 1.3; font-weight: 400; letter-spaci
 
 .main-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
 main { flex: 1; min-width: 0; min-height: 0; }
-.pad { padding-bottom: 10px; }
+.pad { padding-bottom: 0; }
 .foot { flex: none; padding: 4px max(24px, 4vw) 6px; }
 /* 十块地一页：先六块，再四块；翻页了就换下一捆 */
 .grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 16px 22px; align-items: start; padding-top: 4px; }
+  gap: 36px 22px; align-items: start; padding-top: 4px; }
 
 /* 门牌就是纸上几行字：没有边框，没有卡片底，靠留白站住 */
 .visit-card { position: relative; margin-top: var(--drop); padding: 2px 0 8px; cursor: pointer;
