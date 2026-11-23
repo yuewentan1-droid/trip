@@ -348,12 +348,12 @@ async function uprootHere() {
   await delTopic(t);
 }
 
-// 去串门：整页轻轻抬一下，像人抬起头往远处看
+// 出门：整页轻轻抬一下，像人抬起头往远处看
 const leaving = ref(false);
-function toVisits() {
+function leaveTo(path) {
   if (leaving.value) return;
   leaving.value = true;
-  setTimeout(() => router.push('/visits'), 300);
+  setTimeout(() => router.push(path), 300);
 }
 
 function quit() {
@@ -490,7 +490,7 @@ onMounted(() => {
     <VineScroll :el="meadow"/>
     </div>
 
-    <VisitGate @go="toVisits"/>
+    <VisitGate @go="leaveTo('/visits')" @town="leaveTo('/town')"/>
 
     <div v-if="topicFor" class="mask" @click.self="topicFor = null">
       <div class="modal topic-modal" :style="{ width: topicW + 'px' }">

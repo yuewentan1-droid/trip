@@ -2,38 +2,56 @@
 import { ref } from 'vue';
 import Glyph from './Glyph.vue';
 
-const emit = defineEmits(['go']);
+const emit = defineEmits(['go', 'town']);
 const leaving = ref(false);
+// 牌子的另一面朝着城：翻过来看一眼，再决定往哪边走
+const side = ref('visit');
 
-function go() {
+function flip() {
+  side.value = side.value === 'visit' ? 'town' : 'visit';
+}
+function enter() {
   if (leaving.value) return;
   leaving.value = true;
-  emit('go');
+  emit(side.value === 'visit' ? 'go' : 'town');
 }
 </script>
 
 <template>
-  <a href="/visits" class="signpost" :class="{ leaving }" role="link"
-    aria-label="串门，看看别人公开的心田" @click.prevent="go">
+  <div class="signpost" :class="{ leaving }">
     <span class="post" aria-hidden="true"/>
-    <span class="board" aria-hidden="true">
-      <span class="word">串门</span>
-      <Glyph name="right" :size="16"/>
-      <i class="nail n1"/><i class="nail n2"/>
+    <span class="board-flip" :class="{ flipped: side === 'town' }">
+      <button class="board front" :tabindex="side === 'visit' ? 0 : -1" :aria-hidden="side !== 'visit'"
+        aria-label="串门，看看别人公开的心田" @click="enter">
+        <span class="word">串门</span>
+        <Glyph name="right" :size="16"/>
+        <i class="nail n1"/><i class="nail n2"/>
+      </button>
+      <button class="board back" :tabindex="side === 'town' ? 0 : -1" :aria-hidden="side !== 'town'"
+        aria-label="进城，城里的门还没开" @click="enter">
+        <span class="word">进城</span>
+        <Glyph name="right" :size="16"/>
+        <i class="nail n1"/><i class="nail n2"/>
+      </button>
     </span>
+    <button class="flip-tag" :aria-label="side === 'visit' ? '翻到另一面：进城' : '翻到另一面：串门'"
+      @click="flip">
+      <Glyph name="undo" :size="12"/>
+      另一面：{{ side === 'visit' ? '进城' : '串门' }}
+    </button>
     <Glyph class="leaflet" name="leaf" :size="19" aria-hidden="true"/>
     <Glyph class="sprout" name="sprout" :size="24" aria-hidden="true"/>
     <Glyph class="rock" name="rock" :size="20" aria-hidden="true"/>
     <i class="grass g1"/><i class="grass g2"/><i class="grass g3"/>
     <span class="flutter"><Glyph name="butterfly" :size="23"/></span>
-    <span class="hint">去看看别人种了什么</span>
-  </a>
+    <span class="hint">{{ side === 'visit' ? '去看看别人种了什么' : '城里的门还关着' }}</span>
+  </div>
 </template>
 
 <style scoped>
 /* 田埂边插着一块指路的木牌：一根木桩，一块削成箭头的板，蝶绕着板梢转 */
 .signpost { position: fixed; right: 4.5vw; top: 59%; z-index: 8; display: block;
-  width: 200px; height: 172px; cursor: pointer; transition: opacity .3s, translate .3s; }
+  width: 200px; height: 172px; perspective: 700px; transition: opacity .3s, translate .3s; }
 .signpost.leaving { opacity: 0; translate: 0 -8px; }
 /* 桩脚底下洇开一点土影，牌子才是插在地里的，不是浮着的 */
 .signpost::after { content: ''; position: absolute; left: 16px; bottom: -3px; width: 62px; height: 9px;
@@ -54,13 +72,21 @@ function go() {
 .post::after { content: ''; position: absolute; left: 3px; top: 52px; width: 5px; height: 7px;
   border-radius: 50% 44% 52% 46%; background: rgba(63, 48, 32, .26); }
 
-/* 箭头牌朝右指，一头削尖；牌面两枚钉子钉在桩上 */
-.board { position: absolute; left: 20px; top: 28px; z-index: 2; display: inline-flex; align-items: center;
+/* 箭头牌朝右指，一头削尖；牌面两枚钉子钉在桩上。整块牌子能翻面，背面朝着城 */
+.board-flip { position: absolute; left: 20px; top: 28px; z-index: 2; display: grid;
+  transform: rotate(-2.4deg); transform-style: preserve-3d;
+  transition: transform .62s cubic-bezier(.35, .12, .28, 1); }
+.board-flip.flipped { transform: rotate(-2.4deg) rotateY(180deg); }
+.signpost:hover .board-flip { transform: rotate(-1.4deg); }
+.signpost:hover .board-flip.flipped { transform: rotate(-3.4deg) rotateY(180deg); }
+.board { position: relative; grid-area: 1 / 1; display: inline-flex; align-items: center;
   width: max-content; white-space: nowrap; gap: 9px; padding: 8px 34px 9px 30px;
-  color: #FBF7EE; background: #8B6B4A; transform: rotate(-2.4deg);
+  color: #FBF7EE; background: #8B6B4A;
   clip-path: polygon(0 8%, 84% 0, 100% 50%, 84% 100%, 0 92%);
   filter: drop-shadow(0 5px 6px rgba(63, 48, 32, .16));
-  transition: background .35s, transform .35s; }
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  transition: background .35s; }
+.board.back { transform: rotateY(180deg); }
 .board::before { content: ''; position: absolute; inset: 0; opacity: .24;
   background: repeating-linear-gradient(93deg, rgba(63, 48, 32, .36) 0 1px, transparent 1px 8px); }
 .word { position: relative; display: inline-block; font-size: calc(var(--fs-read) + 10px);
@@ -70,7 +96,17 @@ function go() {
   background: rgba(63, 48, 32, .55); box-shadow: inset 0 .5px rgba(255, 253, 244, .25); }
 .n1 { left: 13px; }
 .n2 { left: 26px; }
-.signpost:hover .board { background: #957253; transform: rotate(-1.4deg); }
+.signpost:hover .board { background: #957253; }
+
+/* 牌下钉一张小纸条：明说另一面还有一条路 */
+.flip-tag { position: absolute; left: 23px; top: 92px; z-index: 4; display: inline-flex;
+  align-items: center; gap: 4px; padding: 3px 7px 4px; font-size: var(--fs-xs);
+  letter-spacing: .04em; color: var(--wood); background: color-mix(in srgb, var(--paper) 82%, transparent);
+  border-radius: 3px 9px 4px 8px / 8px 4px 9px 5px;
+  box-shadow: inset 0 0 0 1px rgba(150, 133, 100, .38);
+  transform: rotate(1.6deg); transition: background .25s, color .25s; }
+.flip-tag:hover { color: var(--grass-deep); background: color-mix(in srgb, var(--paper) 94%, transparent); }
+.flip-tag :deep(.gl) { opacity: .7; }
 
 /* 板下露半片叶，桩脚一颗石、一株苗、几根草，像是从这片地里长出来的 */
 .leaflet { position: absolute; left: 5px; top: 68px; z-index: 1; color: var(--grass-deep);
@@ -99,9 +135,9 @@ function go() {
   100% { transform: translate(0, 0) rotate(-10deg); }
 }
 
-.hint { position: absolute; left: 20px; top: calc(100% + 2px); white-space: nowrap;
+.hint { position: absolute; left: 20px; top: 2px; white-space: nowrap;
   font-size: var(--fs-base); color: var(--ink-soft); letter-spacing: 1.5px; opacity: 0;
-  transform: translateY(5px); transition: opacity .25s, transform .25s; pointer-events: none; }
+  transform: translateY(4px); transition: opacity .25s, transform .25s; pointer-events: none; }
 .signpost:hover .hint { opacity: 1; transform: translateY(0); }
 
 /* 窄屏不压在藤上：牌子和原野上下排开，纸页翻到头也总看得见 */
@@ -110,6 +146,6 @@ function go() {
   .hint { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .signpost, .board, .hint, .flutter, .flutter :deep(svg) { animation: none; transition: none; }
+  .signpost, .board-flip, .board, .hint, .flutter, .flutter :deep(svg) { animation: none; transition: none; }
 }
 </style>
