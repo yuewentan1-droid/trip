@@ -185,13 +185,23 @@ fi
 echo "补齐老库里后来加的列"
 mysql --default-character-set=utf8mb4 "$DB_NAME" < "$APP_DIR/server/sql/upgrade.sql"
 
-# 库里还没有官方账号时，把四块官方的田种上；已有的不动，免得收走篱笆上的话
+# 官方四块田每次部署都要齐：空库第一次种完整的；已有库只补缺的，绝不删人或删话
 official=$(mysql --default-character-set=utf8mb4 -N -B "$DB_NAME" -e "SELECT COUNT(*) FROM users WHERE username IN ('风过篱笆','土里长歌','五棵树下','藤爬半坡')" 2>/dev/null || echo 0)
-if [ "$official" = "0" ]; then
-  log "种上四块官方的田"
-  mysql --default-character-set=utf8mb4 "$DB_NAME" < "$APP_DIR/server/sql/official.sql"
+if [ "$official" != "4" ]; then
+  total_users=$(mysql --default-character-set=utf8mb4 -N -B "$DB_NAME" -e "SELECT COUNT(*) FROM users" 2>/dev/null || echo 0)
+  if [ "$total_users" = "0" ]; then
+    log "空库第一次部署，种上四块官方的田"
+    mysql --default-character-set=utf8mb4 "$DB_NAME" < "$APP_DIR/server/sql/official.sql"
+  else
+    log "补齐缺的官方账号（只新增，不动已有数据）"
+    mysql --default-character-set=utf8mb4 "$DB_NAME" < "$APP_DIR/server/sql/official-ensure.sql"
+  fi
+  official=$(mysql --default-character-set=utf8mb4 -N -B "$DB_NAME" -e "SELECT COUNT(*) FROM users WHERE username IN ('风过篱笆','土里长歌','五棵树下','藤爬半坡')" 2>/dev/null || echo 0)
+fi
+if [ "$official" = "4" ]; then
+  echo "四块官方的田都在"
 else
-  echo "官方账号已在，原位留着"
+  echo "提醒：官方账号还缺，可能昵称被普通用户占着；先处理占用，别删线上数据"
 fi
 
 mysql <<SQL

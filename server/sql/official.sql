@@ -1,6 +1,6 @@
 -- 官方四块田：密码都是 12345678
--- 用法（在项目根目录）：mysql -u root -p deep_thinking < server/sql/official.sql
--- 可重复跑：会先收掉上一次种下的这四块田，再重新种
+-- 只给空库第一次初始化用：会先收掉这四块官方田的旧数据，再重新种
+-- 已有用户的线上库绝不跑这个文件；日常部署只补缺的账号，用 official-ensure.sql
 SET NAMES utf8mb4;
 
 SET @pw := '$2a$10$lRtiTc0fHV3RT40KiW8ntO4o6UnTIr/XgPLvsxytXEibOLUkrFHlu';
