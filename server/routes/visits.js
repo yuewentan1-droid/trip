@@ -256,8 +256,13 @@ r.put('/messages/:id/reply', auth, async (req, res) => {
   if (!reply) return err(res, '总得回一句');
   if (chars(reply) > 100) return err(res, '话太长了，收一收');
   const [ret] = await db.query(
-    'INSERT INTO message_replies (message_id, user_id, content) VALUES (?,?,?)',
-    [m.id, req.uid, reply]);
+    'INSERT INTO message_replies (message_id, user_id, content, seen_by_author) VALUES (?,?,?,?)',
+    [m.id, req.uid, reply, req.uid === m.from_user_id ? 1 : 0]);
+  // 留话的人自己回了，前面那些回音就算都看过了
+  if (req.uid === m.from_user_id)
+    await db.query(
+      'UPDATE message_replies SET seen_by_author=1 WHERE message_id=? AND user_id<>? AND seen_by_author=0',
+      [m.id, req.uid]);
   const [[back], [me]] = await Promise.all([
     db.query('SELECT id, message_id, user_id, content, created_at FROM message_replies WHERE id=?', [ret.insertId]),
     db.query('SELECT nickname FROM users WHERE id=?', [req.uid])
@@ -295,6 +300,11 @@ r.get('/messages/outbox', auth, async (req, res) => {
        WHERE r.message_id=m.id), m.created_at) DESC, m.id DESC`, [req.uid]);
   const [[{ total }]] = await db.query(
     'SELECT CAST(COUNT(*) AS SIGNED) AS total FROM messages WHERE from_user_id=?', [req.uid]);
+  // 摊开“我留的”就算看过了，顶上不再反复提同一批回音
+  await db.query(
+    `UPDATE message_replies r JOIN messages m ON m.id=r.message_id
+     SET r.seen_by_author=1
+     WHERE m.from_user_id=? AND r.user_id<>? AND r.seen_by_author=0`, [req.uid, req.uid]);
   ok(res, {
     list: (await withReplies(list)).map(m => ({ ...m, garden_name: titleOf(m) })),
     total
@@ -315,7 +325,9 @@ r.get('/notices', auth, async (req, res) => {
            ORDER BY r.id DESC LIMIT 1) = ?) AS replied,
        (SELECT COUNT(*) FROM messages WHERE from_user_id=?) AS sent,
        (SELECT COUNT(DISTINCT r.user_id) FROM message_replies r JOIN messages m ON m.id=r.message_id
-         WHERE m.from_user_id=? AND r.user_id<>?) AS replies,
+         WHERE m.from_user_id=? AND r.user_id<>? AND r.seen_by_author=0
+           AND NOT EXISTS (SELECT 1 FROM message_replies mine
+             WHERE mine.message_id=m.id AND mine.user_id=m.from_user_id)) AS replies,
        (SELECT COUNT(DISTINCT visitor_id) FROM knocks WHERE garden_user_id=? AND status='pending') AS knocks,
        (SELECT COUNT(DISTINCT garden_user_id) FROM knocks WHERE visitor_id=? AND status='approved' AND seen_by_visitor=0) AS approvals`,
     [req.uid, req.uid, req.uid, req.uid, req.uid, req.uid, req.uid, req.uid, req.uid]);

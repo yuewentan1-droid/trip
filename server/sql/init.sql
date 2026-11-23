@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS message_replies (
   user_id INT NOT NULL,
   content VARCHAR(200) NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  seen_by_author TINYINT NOT NULL DEFAULT 0,
   INDEX idx_replies (message_id, id)
 ) DEFAULT CHARSET = utf8mb4;
 

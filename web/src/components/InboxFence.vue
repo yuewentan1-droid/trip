@@ -68,6 +68,7 @@ async function loadNotes() {
     const waiting = m => m.replies?.[m.replies.length - 1]?.user_id !== user.user?.id;
     notes.value = noteScope.value === 'out' ? list : list.filter(waiting);
     history.value = noteScope.value === 'out' ? [] : list.filter(m => !waiting(m));
+    if (noteScope.value === 'out') await notice.load();
   } finally {
     loading.value = false;
   }
