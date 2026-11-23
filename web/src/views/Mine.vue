@@ -126,6 +126,8 @@ async function replant(s, where) {
     await api.place(s.id, where);
     field.patch(s.id, { placement: where });
     toast(where === 'wind' ? '交给风了' : where === 'ground' ? '种回地上了' : '挂回树上了');
+    // 种回哪处，就顺着藤或风跟到主页去看它
+    setTimeout(() => router.push('/?focus=' + s.id), 1200);
   } finally {
     placingId.value = 0;
   }

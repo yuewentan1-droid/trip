@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { api } from '../api';
 import { useUser } from '../store/user';
+import { ask } from '../utils/ask';
 import { said } from '../utils/time';
 import { toast } from '../utils/toast';
 import Spread from './Spread.vue';
@@ -55,7 +56,13 @@ function begin(m) {
   replying.value = m.id;
   draft.value = m.reply || '';
 }
-function wipe(m) {
+async function wipe(m) {
+  const sure = await ask({
+    title: '抹掉这句话？',
+    body: '抹掉之后，篱笆上就不留了，找不回来。',
+    ok: '抹掉', cancel: '再留着', icon: 'trash'
+  });
+  if (!sure) return;
   close();
   emit('erase', m);
 }
