@@ -121,9 +121,10 @@ function enter() {
 .g2 { left: 58px; height: 17px; transform: rotate(9deg); opacity: .42; }
 .g3 { left: 70px; height: 12px; transform: rotate(20deg); opacity: .5; }
 
-/* 一只蝶绕着牌梢转，翅膀自己轻轻开合 */
+/* 一只蝶绕着牌梢转，翅膀自己轻轻开合；凑近读字时它先飞开 */
 .flutter { position: absolute; left: 174px; top: 6px; z-index: 3; pointer-events: none; line-height: 0;
-  color: var(--clay); animation: signFly 13s ease-in-out infinite; }
+  color: var(--clay); animation: signFly 13s ease-in-out infinite; transition: opacity .3s; }
+.signpost:hover .flutter { opacity: 0; }
 .flutter :deep(svg) { transform-box: fill-box; transform-origin: center;
   animation: signWing .48s ease-in-out infinite alternate; }
 @keyframes signWing { from { transform: scaleX(1); } to { transform: scaleX(.68); } }
@@ -135,7 +136,7 @@ function enter() {
   100% { transform: translate(0, 0) rotate(-10deg); }
 }
 
-.hint { position: absolute; left: 20px; top: 2px; white-space: nowrap;
+.hint { position: absolute; left: 20px; top: -10px; z-index: 4; white-space: nowrap; line-height: 1.4;
   font-size: var(--fs-base); color: var(--ink-soft); letter-spacing: 1.5px; opacity: 0;
   transform: translateY(4px); transition: opacity .25s, transform .25s; pointer-events: none; }
 .signpost:hover .hint { opacity: 1; transform: translateY(0); }

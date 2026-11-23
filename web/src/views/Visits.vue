@@ -6,7 +6,6 @@ import { spoken } from '../utils/time';
 import Glyph from '../components/Glyph.vue';
 import BackVine from '../components/BackVine.vue';
 import TreeMark from '../components/TreeMark.vue';
-import VineScroll from '../components/VineScroll.vue';
 import FieldPager from '../components/FieldPager.vue';
 
 const router = useRouter();
@@ -22,7 +21,6 @@ const total = ref(0);
 const page = ref(1);
 const ready = ref(false);
 const loading = ref(false);
-const mainBody = ref(null);
 const PER = 10;
 const pages = computed(() => Math.max(1, Math.ceil(total.value / PER)));
 let findTimer;
@@ -83,7 +81,7 @@ onMounted(() => load(1));
     </header>
 
     <div class="main-wrap">
-    <main ref="mainBody" class="roll">
+    <main class="roll">
       <div class="v-inner pad">
         <div v-if="!ready" class="seeds" aria-label="地在翻土">
           <span/><span/><span/>
@@ -130,7 +128,7 @@ onMounted(() => load(1));
               <p v-if="g.latest_seed" class="seed">“{{ g.latest_seed }}”</p>
               <div v-if="g.fenced" class="closed-mark">
                 <Glyph name="home" :size="29"/>
-                <span>篱笆围着，主页还看得见</span>
+                <span>主页还看得见</span>
               </div>
               <div v-else class="silhouette"><i/><TreeMark :count="g.seed_count || 0" :level="g.top_level || 0"/><i/></div>
               <p class="talk">
@@ -144,7 +142,6 @@ onMounted(() => load(1));
         </template>
       </div>
     </main>
-    <VineScroll :el="mainBody"/>
     </div>
 
     <footer v-if="ready && pages > 1" class="foot">
@@ -157,13 +154,13 @@ onMounted(() => load(1));
 .visits { position: relative; height: 100vh; height: 100dvh; display: flex; flex-direction: column;
   overflow: hidden; padding-left: clamp(72px, 7vw, 112px); padding-bottom: env(safe-area-inset-bottom); }
 
-.v-head { flex: none; min-height: 22vh; display: flex; flex-direction: column; justify-content: flex-end;
-  padding: max(18px, env(safe-area-inset-top)) 0 18px; position: relative; z-index: 2; }
+.v-head { flex: none; min-height: 18vh; display: flex; flex-direction: column; justify-content: flex-end;
+  padding: max(12px, env(safe-area-inset-top)) 0 10px; position: relative; z-index: 2; }
 .v-inner { width: 100%; margin: 0 auto; padding: 0 max(24px, 4vw); }
-h1 { font-size: var(--fs-hero); font-weight: 400; letter-spacing: 2px; color: var(--ink); }
-.v-sub { margin-top: 2px; font-size: var(--fs-base); letter-spacing: 1px; color: var(--ink-soft); }
+h1 { font-size: var(--fs-hero); line-height: 1.3; font-weight: 400; letter-spacing: 2px; color: var(--ink); }
+.v-sub { margin-top: 2px; line-height: 1.5; font-size: var(--fs-base); letter-spacing: 1px; color: var(--ink-soft); }
 .v-tools { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px 28px;
-  flex-wrap: wrap; margin-top: 24px; }
+  flex-wrap: wrap; margin-top: 10px; }
 .filters { display: flex; flex-wrap: wrap; gap: 12px 32px; }
 /* 找人家：一道田埂、一片叶，和串门本身一样不摆输入框 */
 .v-find { display: flex; align-items: center; gap: 7px; width: min(380px, 100%); color: var(--ink-faint);
@@ -184,41 +181,43 @@ h1 { font-size: var(--fs-hero); font-weight: 400; letter-spacing: 2px; color: va
 
 .main-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
 main { flex: 1; min-width: 0; min-height: 0; }
-.pad { padding-bottom: 22px; }
-.foot { flex: none; padding: 6px max(24px, 4vw) 16px; }
+.pad { padding-bottom: 10px; }
+.foot { flex: none; padding: 4px max(24px, 4vw) 6px; }
 /* 十块地一页：先六块，再四块；翻页了就换下一捆 */
 .grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 30px 22px; align-items: start; padding-top: 8px; }
+  gap: 16px 22px; align-items: start; padding-top: 4px; }
 
 /* 门牌就是纸上几行字：没有边框，没有卡片底，靠留白站住 */
-.visit-card { position: relative; margin-top: var(--drop); padding: 4px 0 18px; cursor: pointer;
+.visit-card { position: relative; margin-top: var(--drop); padding: 2px 0 8px; cursor: pointer;
   transition: transform .3s cubic-bezier(.25, .1, .25, 1); }
 .visit-card:hover { transform: translateX(-3px); }
 .byline { position: absolute; left: -14px; top: 0; width: 3px; height: 100%; overflow: visible; }
 .byline path { stroke: #8B6B4A; stroke-width: 2; stroke-linecap: round;
   stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0; transition: stroke-dashoffset .3s, opacity .3s; }
 .visit-card:hover .byline path { stroke-dashoffset: 0; opacity: 1; }
-.avatar { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 47px;
+.avatar { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 45px;
   padding-bottom: 1px; line-height: 1;
   border: 1.5px solid #C9B99A; border-radius: 47% 53% 50% 50% / 52% 48% 54% 46%;
   background: transparent; color: var(--wood); font-size: var(--fs-read); transition: border-color .2s; }
 .visit-card:hover .avatar { border-color: #8B6F47; animation: nod .2s ease-in-out; }
-h2 { margin-top: 12px; font-size: var(--fs-read); font-weight: 400; letter-spacing: 1px; color: var(--ink); }
-.stat { margin-top: 1px; font-size: var(--fs-sm); letter-spacing: 1.5px; color: var(--ink-soft); }
+h2 { margin-top: 7px; line-height: 1.35; font-size: var(--fs-read); font-weight: 400; letter-spacing: 1px;
+  color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat { margin-top: 1px; line-height: 1.5; font-size: var(--fs-sm); letter-spacing: 1.5px; color: var(--ink-soft); }
 .stat.closed { display: inline-flex; align-items: center; gap: 4px; color: #A89880; }
 .stat.open-door { display: inline-flex; align-items: center; gap: 4px; color: var(--grass-deep); }
 .stat.open-door.quiet { color: var(--ink-soft); }
 .stat.open-door.quiet :deep(.gl) { opacity: .66; }
-.seed { margin-top: 16px; font-size: var(--fs-base); line-height: 1.7; letter-spacing: 1px; color: var(--ink-soft); }
-.silhouette { display: flex; align-items: center; gap: 10px; margin-top: 16px; height: 48px; }
-.closed-mark { display: flex; align-items: center; justify-content: center; gap: 7px; height: 48px;
-  margin-top: 16px; color: #A89880; font-size: var(--fs-xs); letter-spacing: .06em; }
+.seed { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  margin-top: 8px; font-size: var(--fs-base); line-height: 1.5; letter-spacing: 1px; color: var(--ink-soft); }
+.silhouette { display: flex; align-items: center; gap: 10px; margin-top: 8px; height: 36px; }
+.closed-mark { display: flex; align-items: center; justify-content: center; gap: 7px; height: 36px;
+  margin-top: 8px; color: #A89880; font-size: var(--fs-xs); letter-spacing: .06em; }
 .closed-mark :deep(svg) { opacity: .65; }
 .silhouette i { display: block; width: 30px; height: 1px; background: rgba(150, 133, 100, .45); }
 .silhouette i:last-child { flex: 1; max-width: 54px; }
-.talk { display: flex; align-items: center; gap: 4px; margin-top: 9px; font-size: var(--fs-sm);
-  letter-spacing: .06em; color: var(--grass-deep); }
-.when { margin-top: 3px; font-size: var(--fs-sm); letter-spacing: 1.2px; color: #A89880; }
+.talk { display: flex; align-items: center; gap: 4px; margin-top: 5px; font-size: var(--fs-sm);
+  line-height: 1.5; letter-spacing: .06em; color: var(--grass-deep); }
+.when { margin-top: 2px; line-height: 1.5; font-size: var(--fs-sm); letter-spacing: 1.2px; color: #A89880; }
 
 .seeds { display: flex; justify-content: center; align-items: flex-end; gap: 10px; padding: 16vh 0; }
 .seeds span { width: 9px; height: 14px; border: 1.5px solid var(--ink-soft);
