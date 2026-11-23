@@ -3,13 +3,13 @@ import { defineStore } from 'pinia';
 const KEY = 'trip-ui-scale';
 const DESIGN_W = 1440;
 const MIN = .95;
-const MAX = 1.25;
+const MAX = 1;
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 let listening = false;
 
-// 字号整档跟着窗口走：大屏多给一点，小屏收一点；手机仍交给原来的响应式，不再缩字
+// 字号整档跟着窗口走：大屏不再放大，窄桌面收一点；手机仍交给原来的响应式，不再缩字
 export const useScale = defineStore('scale', {
   state: () => ({
     on: localStorage.getItem(KEY) === '1',

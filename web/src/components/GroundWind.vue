@@ -184,6 +184,8 @@ const airStyle = (a, i) => ({
 .g-vine .g-root { stroke-width: 3; opacity: .5; }
 .ground-seed::before { content: ''; position: absolute; bottom: -3px; left: 50%; width: 30px; height: 7px;
   margin-left: -15px; border-radius: 50%; background: rgba(120, 96, 62, .2); z-index: -1; }
+/* 牌上的字比正文小三号：宽屏十七，窄屏十六，不跟着字号开关再放大 */
+.seed-sign :deep(.board) { font-size: 17px; }
 .ground-seed .seed-sign { top: calc(100% + 2px); opacity: 0; visibility: hidden; translate: 0 3px;
   transition: opacity .35s, translate .35s, visibility .35s; }
 .ground-seed:hover { z-index: 12; transform: translateX(-50%) rotate(0deg) translateY(-3px); color: var(--wood); }
@@ -296,6 +298,7 @@ body[data-night="1"] .air-life { opacity: .34; filter: brightness(.68) saturate(
   .ground-seed:hover { transform: rotate(0deg) translateY(-3px); }
   /* 手机屏放不下整片风：只留一小把，缩成花粉那么轻，落在字和树的后头 */
   .wind-seed { opacity: .58; z-index: 1; }
+  .seed-sign :deep(.board) { font-size: 16px; }
   .wind-seed:nth-of-type(n+25) { display: none; }
   .wind-seed :deep(.gl) { --s: 20px !important; }
   .wind-wisp, .wind-mate { display: none; }
