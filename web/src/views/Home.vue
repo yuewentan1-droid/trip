@@ -1,6 +1,6 @@
 <script setup>
-import { computed, nextTick, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { api } from '../api';
 import { useUser } from '../store/user';
 import { useField } from '../store/field';
@@ -25,6 +25,7 @@ import PlotSign from '../components/PlotSign.vue';
 import VineScroll from '../components/VineScroll.vue';
 import VisitGate from '../components/VisitGate.vue';
 
+const route = useRoute();
 const router = useRouter();
 const user = useUser();
 const field = useField();
@@ -223,6 +224,24 @@ const MOBILE_FLITS = [
 ];
 
 const meadow = ref(null);
+// 刚封好的地落在树上、地里还是风里，回来就顺着藤或风去找它
+const focusId = Number(route.query.focus) || 0;
+const fresh = ref(0);
+let findTimer;
+async function findPlanted() {
+  if (!focusId || !field.ready) return;
+  await nextTick();
+  const el = meadow.value?.querySelector(`[data-id="${focusId}"]`);
+  if (!el) return;
+  const inWind = el.classList.contains('wind-seed');
+  if (!inWind) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  fresh.value = focusId;
+  toast(inWind ? '随风到了，就在这儿' : '顺着藤，找到它了');
+  clearTimeout(findTimer);
+  findTimer = setTimeout(() => (fresh.value = 0), 4200);
+}
+watch([() => field.ready, meadow], findPlanted, { immediate: true });
+onBeforeUnmount(() => clearTimeout(findTimer));
 const hover = ref(null);
 const at = el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
 
@@ -416,7 +435,7 @@ onMounted(() => {
 
       <SoulTree v-for="(tree, i) in grove" :key="'tree' + i" class="tree" :class="'tree-' + i"
         :style="treeStyle(i, 'home', tree.length, treeCap(i))" :sessions="tree" :cap="treeCap(i)"
-        :variant="treeForm(user.user?.id, i)"
+        :fresh="fresh" :variant="treeForm(user.user?.id, i)"
         :seed="(user.user?.id || 0) * 37 + i * 101" @open="openPlot"/>
       <div v-if="blooming" class="shed"><Drift/></div>
 
@@ -478,7 +497,7 @@ onMounted(() => {
       </div>
 
       <!-- 种在地上的和交给风的那些，和别人的院子里共用同一套生长 -->
-      <GroundWind :sessions="field.sessions" :roots="groundRoots" @open="openPlot"/>
+      <GroundWind :sessions="field.sessions" :roots="groundRoots" :fresh="fresh" @open="openPlot"/>
 
       <button class="mist" @click.stop="openSeed(null, { x: 48, y: 63 })">
         <Glyph name="flower" :size="22"/>

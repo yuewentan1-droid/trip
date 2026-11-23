@@ -19,6 +19,7 @@ function track() {
 function bind() {
   if (!props.el) return;
   props.el.addEventListener('scroll', track, { passive: true });
+  props.el.addEventListener('input', track);
   ro = new ResizeObserver(track);
   ro.observe(props.el);
   [...props.el.children].forEach(c => ro.observe(c));
@@ -32,6 +33,7 @@ onMounted(async () => {
 });
 onBeforeUnmount(() => {
   props.el?.removeEventListener('scroll', track);
+  props.el?.removeEventListener('input', track);
   ro?.disconnect();
   mo?.disconnect();
 });

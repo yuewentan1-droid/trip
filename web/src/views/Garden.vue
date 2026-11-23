@@ -247,11 +247,20 @@ async function knock() {
 /* ——— 留句话 ——— */
 const open = ref(false);
 const draft = ref('');
+const draftLen = computed(() => [...draft.value].length);
 const sending = ref(false);
 const sent = ref(false);
 const note = ref('');
 const box = ref(null);
 let closeTimer, sentTimer;
+
+// 纸跟着字长，长到屏幕三成高就停，余下的顺着藤往下看
+function fitBox() {
+  const el = box.value;
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, Math.round(innerHeight * .34)) + 'px';
+}
 
 function write() {
   if (mine.value || !user.isLogin) return;
@@ -267,7 +276,7 @@ function shut() {
 async function send() {
   const content = draft.value.trim();
   if (!content || sending.value) return;
-  if ([...content].length > 200) return (note.value = '话太长了，收一收');
+  if ([...content].length > 100) return (note.value = '话太长了，收一收');
   sending.value = true;
   note.value = '';
   try {
@@ -286,8 +295,9 @@ async function send() {
     sending.value = false;
   }
 }
+watch(draft, () => nextTick(fitBox));
 watch(open, on => {
-  if (on) nextTick(() => box.value?.focus());
+  if (on) nextTick(() => { fitBox(); box.value?.focus(); });
 });
 watch(() => route.params.userId, load);
 
@@ -486,14 +496,18 @@ onMounted(() => {
             </span>
             <form @submit.prevent="send">
               <h3>给{{ garden.garden_name }}留句话</h3>
-              <textarea ref="box" v-model="draft" rows="2" maxlength="200" :disabled="sending"
-                aria-label="留句话"/>
+              <div class="sheet-well">
+                <textarea ref="box" v-model="draft" rows="2" maxlength="100" :disabled="sending"
+                  aria-label="留句话"/>
+                <VineScroll :el="box"/>
+              </div>
               <svg class="ink-line" :class="{ draw: sent }" viewBox="0 0 600 5" preserveAspectRatio="none" aria-hidden="true">
                 <path pathLength="1" d="M2 3 C 110 1.6, 220 4.2, 330 2.8 C 430 1.4, 520 3.6, 598 2.6"/>
               </svg>
               <p v-if="note" class="note">{{ note }}</p>
               <div class="sheet-foot">
-                <Spread v-model="draft" :max="200" placeholder="留句话"/>
+                <Spread v-model="draft" :max="100" placeholder="留句话"/>
+                <span class="sheet-count">{{ draftLen }}/100</span>
                 <button type="submit" class="leave" :disabled="sending || !draft.trim()">留下了</button>
               </div>
             </form>
@@ -703,14 +717,18 @@ body[data-night="1"] .read-sheet { border-color: rgba(148, 160, 176, .22);
   box-shadow: 0 18px 44px rgba(5, 9, 15, .34); }
 .sheet form { width: min(720px, 100%); margin: 0 auto; }
 .sheet h3 { font-size: var(--fs-read); font-weight: 400; letter-spacing: 1px; color: var(--ink); }
-.sheet textarea { display: block; width: 100%; min-height: 76px; margin-top: 12px; padding: 4px 2px 10px;
-  border: none; font-size: var(--fs-read); line-height: 1.9; color: var(--ink); background: transparent; }
+.sheet-well { position: relative; margin-top: 12px; }
+.sheet textarea { display: block; width: 100%; min-height: 76px; max-height: 34dvh; padding: 4px 26px 10px 2px;
+  border: none; font-size: var(--fs-read); line-height: 1.9; color: var(--ink); background: transparent;
+  overflow-y: auto; overscroll-behavior: contain; resize: none; scrollbar-width: none; }
+.sheet textarea::-webkit-scrollbar { display: none; }
 .sheet textarea:focus { outline: none; }
 .ink-line { display: block; width: 100%; height: 5px; overflow: visible; }
 .ink-line path { stroke: #C9B99A; stroke-width: 1.6; stroke-linecap: round; }
 .ink-line.draw path { animation: lineBack .4s ease-out; }
 .note { margin-top: 4px; font-size: var(--fs-sm); letter-spacing: 1px; color: var(--wood); animation: inkIn .3s ease-out; }
 .sheet-foot { display: flex; align-items: center; justify-content: flex-end; flex-wrap: nowrap; gap: 24px; margin-top: 14px; }
+.sheet-count { font-size: var(--fs-sm); color: var(--ink-faint); letter-spacing: .04em; }
 .leave { font-size: var(--fs-base); color: var(--wood); letter-spacing: 2px;
   text-decoration: underline wavy rgba(139, 107, 74, .6) 1px; text-underline-offset: 6px; }
 .leave:disabled { opacity: .35; text-decoration-color: transparent; cursor: default; }

@@ -12,7 +12,8 @@ const props = defineProps({
   peek: Boolean,
   seed: { type: [Number, String], default: 1 },
   variant: { type: Number, default: 0 },
-  cap: { type: Number, default: TREE_CAP }
+  cap: { type: Number, default: TREE_CAP },
+  fresh: { type: Number, default: 0 }
 });
 const emit = defineEmits(['open']);
 
@@ -742,7 +743,8 @@ const off = () => (hot.value = null);
       </g>
 
       <g v-for="b in canopy" :key="'l' + b.k">
-        <g v-for="l in b.leaves" :key="l.s.id" class="mark" :class="{ hot: hot === l }"
+        <g v-for="l in b.leaves" :key="l.s.id" class="mark" :data-id="l.s.id"
+          :class="{ hot: hot === l, fresh: fresh === l.s.id }"
           :transform="`translate(${l.x.toFixed(1)} ${l.y.toFixed(1)})`"
           @mouseenter="over(l)" @mouseleave="off" @click="emit('open', l.s)">
           <circle class="hit" :r="l.hit"/>
@@ -820,6 +822,11 @@ body[data-night="1"] .fairy { display: block; }
 
 .mark { pointer-events: all; cursor: pointer; }
 .hit { fill: transparent; }
+/* 刚种回来的那一片：圈一圈虚线，顺着藤一眼认出 */
+.mark.fresh .hit { fill: color-mix(in srgb, var(--wheat) 16%, transparent);
+  stroke: var(--wood); stroke-width: 1.2; stroke-dasharray: 3 5;
+  animation: findRing 1.4s ease-in-out infinite alternate; }
+@keyframes findRing { from { opacity: .22; } to { opacity: .9; } }
 /* 每一块地都是慢慢顶出来的，不是刷新时一起贴上去的 */
 .bud { transform-box: fill-box; transform-origin: center;
   animation: budIn .9s cubic-bezier(.2, .8, .3, 1) var(--grow) backwards; }

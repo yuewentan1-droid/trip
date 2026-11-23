@@ -212,7 +212,7 @@ r.post('/garden/:id/messages', auth, async (req, res) => {
   if (mode !== 'public') return err(res, '主人开了门给你看，没说能留话');
   const content = String(req.body.content || '').trim();
   if (!content) return err(res, '总得写点什么');
-  if (chars(content) > 200) return err(res, '话太长了，收一收');
+  if (chars(content) > 100) return err(res, '话太长了，收一收');
   const [[{ n }]] = await db.query(
     `SELECT CAST(COUNT(*) AS SIGNED) AS n FROM messages
      WHERE garden_user_id=? AND from_user_id=? AND created_at >= CURDATE()`, [g.id, req.uid]);
@@ -234,7 +234,7 @@ r.put('/messages/:id/reply', auth, async (req, res) => {
   if (!m || m.garden_user_id !== req.uid) return err(res, '这句不在你的篱笆上');
   const reply = String(req.body.reply || '').trim();
   if (!reply) return err(res, '总得回一句');
-  if (chars(reply) > 200) return err(res, '话太长了，收一收');
+  if (chars(reply) > 100) return err(res, '话太长了，收一收');
   await db.query('UPDATE messages SET reply=?, replied_at=NOW() WHERE id=?', [reply, m.id]);
   const [back] = await db.query('SELECT reply, replied_at FROM messages WHERE id=?', [m.id]);
   ok(res, back[0]);

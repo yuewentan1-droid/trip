@@ -32,11 +32,12 @@ const mine = m => m.from_user_id === user.user?.id;
 const replyable = computed(() => props.owner && props.canReply);
 // 合着的时候只露出人和时候，想读就把这张纸摊到眼前
 const close = () => { openNote.value = null; replying.value = 0; draft.value = ''; };
-// 纸摊多大看话有多长：短话留白，长话铺开，太长就在纸上滚
-const sizeOf = m => {
+// 纸按话的长短裁：短话一张便笺，长话铺到屏边，再长就顺着藤往下读
+const noteW = m => {
   const n = [...String(m.content || '')].length + Math.round([...String(m.reply || '')].length * .7);
-  return n <= 30 ? 'slim' : n <= 100 ? 'plain' : n <= 200 ? 'broad' : 'full';
+  return Math.min(980, Math.max(440, Math.round(400 + n * 3.2)));
 };
+const draftLen = computed(() => [...draft.value].length);
 const stopReply = () => { replying.value = 0; };
 watch(() => props.list, close);
 const hash = m => [...String(m.id)].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7);
@@ -61,7 +62,7 @@ function wipe(m) {
 async function reply(m) {
   const text = draft.value.trim();
   if (!text) return (draft.value = '');
-  if ([...text].length > 200) return toast('话太长了，收一收');
+  if (draftLen.value > 100) return toast('话太长了，收一收');
   sending.value = true;
   try {
     const d = await api.replyMessage(m.id, { reply: text });
@@ -87,8 +88,6 @@ async function reply(m) {
           <span class="n-name" :title="m.nickname">{{ m.nickname }}</span>
           <span class="n-when">{{ said(m.created_at) }}</span>
         </header>
-        <p class="nr-say">{{ m.content }}</p>
-        <p v-if="m.reply" class="nr-reply"><b>{{ owner ? '你' : '主人' }}回：</b>{{ m.reply }}</p>
       </div>
       <div class="nr-acts" @click.stop>
         <button class="n-open" @click="openNote = m">
@@ -123,7 +122,7 @@ async function reply(m) {
   <Teleport to="body">
     <Transition name="note-pop">
       <div v-if="openNote" class="note-mask" @click.self="close">
-        <article class="note-window" :class="sizeOf(openNote)" role="dialog" aria-modal="true"
+        <article class="note-window" :style="{ '--w': noteW(openNote) + 'px' }" role="dialog" aria-modal="true"
           :aria-label="`${openNote.nickname} 的留言`">
           <ModalSprig/>
           <header class="n-head nw-head">
@@ -150,9 +149,10 @@ async function reply(m) {
           <Transition name="reply">
             <form v-if="replyable && replying === openNote.id" class="n-form nw-form"
               @submit.prevent="reply(openNote)" @click.stop>
-              <textarea v-model="draft" rows="2" maxlength="200" placeholder="回一句，别端着…" aria-label="回复留言"/>
+              <textarea v-model="draft" rows="2" maxlength="100" placeholder="回一句，别端着…" aria-label="回复留言"/>
               <div class="n-acts">
-                <Spread v-model="draft" :max="200" placeholder="回一句，别端着…"/>
+                <Spread v-model="draft" :max="100" placeholder="回一句，别端着…"/>
+                <span class="n-num">{{ draftLen }}/100</span>
                 <button type="button" class="n-x" @click="stopReply">先不回</button>
                 <button type="submit" class="n-send" :disabled="sending || !draft.trim()">回上去</button>
               </div>
@@ -199,7 +199,7 @@ async function reply(m) {
 /* 篱笆上的话按行排，和敲门一个脾气：人脸在左，话在中间，手脚收在右边 */
 .notes.rows { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 4px 0 8px; }
 .note-row { --paper-bed: color-mix(in srgb, var(--card) 46%, var(--paper-2));
-  display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px 11px;
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px 11px;
   background: var(--paper-bed); border: 1.1px dashed rgba(150, 133, 100, .38);
   border-radius: var(--r-a); cursor: pointer; transition: background .3s, box-shadow .3s; }
 .note-row:hover { box-shadow: var(--emboss); }
@@ -207,12 +207,7 @@ async function reply(m) {
 .note-row.old { background: color-mix(in srgb, var(--grass) 12%, var(--paper-bed)); }
 .note-row .n-face { width: 29px; height: 30px; }
 .nr-main { flex: 1; min-width: 0; }
-/* 篱笆上挂的是话本身，不只是谁来过；回过的也一并晾在这儿 */
-.nr-say { margin-top: 5px; font-size: var(--fs-base); line-height: 1.7; letter-spacing: .01em;
-  color: var(--ink); white-space: pre-wrap; word-break: break-word; }
-.nr-reply { margin-top: 5px; font-size: var(--fs-sm); line-height: 1.7; color: var(--ink-soft); }
-.nr-reply b { font-weight: normal; color: var(--grass-deep); }
-.nr-acts { display: flex; align-items: center; gap: 12px; flex: none; padding-top: 2px; }
+.nr-acts { display: flex; align-items: center; gap: 12px; flex: none; }
 .nr-acts .n-open { margin-right: 0; opacity: 1; }
 .notes.rows .n-empty { padding: 18px 0 12px; }
 /* 把信纸从篱笆上取下来，摊到眼前；话长纸就宽，长得过了头就在纸里挪 */
@@ -230,10 +225,6 @@ async function reply(m) {
   border: 1.5px dashed rgba(150, 133, 100, .55);
   border-radius: 26px 14px 30px 12px / 14px 28px 12px 30px;
   box-shadow: 0 18px 44px rgba(63, 58, 47, .16); transform: rotate(-.3deg); }
-.note-window.slim { --w: 440px; }
-.note-window.plain { --w: 660px; }
-.note-window.broad { --w: 820px; }
-.note-window.full { --w: 960px; }
 /* 纸自己按话的长短裁：短话收着，长话把整张纸撑到屏边，余下的顺着藤往上翻 */
 .nw-body-wrap { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .nw-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 20px 6px 0;
@@ -261,6 +252,7 @@ async function reply(m) {
 .n-form textarea:focus { outline: none; }
 .n-acts { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 4px; }
 .n-acts :deep(.spread-open) { margin-right: auto; }
+.n-num { font-size: var(--fs-sm); color: var(--ink-faint); letter-spacing: .04em; }
 .n-x { font-size: var(--fs-sm); color: var(--ink-faint); }
 .n-send { font-size: var(--fs-md); color: var(--grass-deep);
   text-decoration: underline wavy rgba(79, 107, 58, .45) 1px; text-underline-offset: 4px; }

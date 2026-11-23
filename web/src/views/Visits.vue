@@ -185,7 +185,7 @@ main { flex: 1; min-width: 0; min-height: 0; }
 .foot { flex: none; padding: 4px max(24px, 4vw) 6px; }
 /* 十块地一页：先六块，再四块；翻页了就换下一捆 */
 .grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 36px 22px; align-items: start; padding-top: 4px; }
+  gap: 20px 22px; align-items: start; }
 
 /* 门牌就是纸上几行字：没有边框，没有卡片底，靠留白站住 */
 .visit-card { position: relative; margin-top: var(--drop); padding: 2px 0 8px; cursor: pointer;
@@ -247,7 +247,7 @@ h2 { margin-top: 7px; line-height: 1.35; font-size: var(--fs-read); font-weight:
 @keyframes nod { 0%, 100% { transform: translateX(0); } 30% { transform: translateX(-1.5px); } 70% { transform: translateX(1.5px); } }
 
 @media (max-width: 1250px) {
-  .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px 20px; }
+  .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px 20px; }
 }
 @media (max-width: 880px) {
   .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -255,7 +255,7 @@ h2 { margin-top: 7px; line-height: 1.35; font-size: var(--fs-read); font-weight:
 @media (max-width: 720px) {
   .visits { padding-left: max(60px, env(safe-area-inset-left)); }
   .v-head { min-height: 18vh; padding: max(14px, env(safe-area-inset-top)) 0 14px; }
-  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 14px; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 14px; }
   .visit-card { margin-top: 0; }
   .chips, .filters { gap: 10px 22px; }
   .v-inner { padding: 0 max(14px, env(safe-area-inset-right)) 0 max(14px, env(safe-area-inset-left)); }

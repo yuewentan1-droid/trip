@@ -290,20 +290,25 @@ async function seal(where) {
     if (go) router.push('/mine?tab=held&focus=' + id);
     return;
   }
-  toast(where === 'wind' ? '交给风了' : '这块地封存了');
+  toast(where === 'wind' ? '交给风了' : where === 'tree' ? '挂上树了，写得越多，树就长得越高' : '种在地上了');
   // 刚好挂满这一棵：问一声，要不要在旁边再种一棵
   if (where === 'tree' && treeCount.value === treeLimit(slots.value)) {
-    if (groveFull.value) return toast('五棵树都满了，往后的地就种在土里、交给风吧');
-    const more = await ask({
-      title: '这棵树挂满了', icon: 'sprout',
-      body: '这一棵的地都挂稳了。要不要在旁边再种一棵，往后接着长？',
-      ok: '种一棵', cancel: '先这样'
-    });
-    if (more) {
-      await moreTree();
-      toast('又一棵种下了，去原野上看一眼');
+    if (groveFull.value) {
+      toast('五棵树都满了，往后的地就种在土里、交给风吧');
+    } else {
+      const more = await ask({
+        title: '这棵树挂满了', icon: 'sprout',
+        body: '这一棵的地都挂稳了。要不要在旁边再种一棵，往后接着长？',
+        ok: '种一棵', cancel: '先这样'
+      });
+      if (more) {
+        await moreTree();
+        toast('又一棵种下了');
+      }
     }
   }
+  // 落稳了，顺着藤或风去看看它在哪儿
+  setTimeout(() => router.push('/?focus=' + id), 1200);
 }
 
 async function del(t) {
@@ -554,7 +559,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', offGuide, true
           <button class="way" @click="seal('tree')">
             <Glyph name="pine" :size="58"/>
             <b>挂在树上</b>
-            <span>{{ treeFull ? (groveFull ? '五棵都满了，这块落土里吧' : '这棵挂满了，再种一棵接着挂') : '树上有的是枝，它自己挑一根长' }}</span>
+            <span>{{ treeFull ? (groveFull ? '五棵都满了，这块落土里吧' : '这棵挂满了，再种一棵接着挂') : '写得越多，树就长得越高；它自己挑一根枝长' }}</span>
           </button>
           <button class="way" :disabled="groundFull" @click="seal('ground')">
             <Glyph name="sprout" :size="58"/>

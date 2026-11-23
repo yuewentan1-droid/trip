@@ -8,7 +8,8 @@ import PlotSign from './PlotSign.vue';
 const props = defineProps({
   sessions: { type: Array, default: () => [] },
   roots: { type: Array, default: () => ['var(--tree-x)'] },
-  bed: { type: Number, default: 460 }
+  bed: { type: Number, default: 460 },
+  fresh: { type: Number, default: 0 }
 });
 const emit = defineEmits(['open']);
 
@@ -126,6 +127,7 @@ const airStyle = (a, i) => ({
     <div v-for="(bed, k) in groundBeds" :key="'bed' + k" class="ground-bed"
       :style="{ '--bed-w': bed.w + 'px', '--bed-max': multi ? '52vw' : '86vw', '--root-left': bed.left }">
       <button v-for="(s, i) in bed.list" :key="'g' + s.id" class="ground-seed"
+        :class="{ fresh: fresh === s.id }" :data-id="s.id"
         :style="groundStyle(s, i, bed.list.length)" :aria-label="s.title" @click.stop="emit('open', s)">
         <Glyph :name="groundGlyph(s)" :size="seedSize(s)"/>
         <svg v-if="plantGlyph(s)" class="g-vine" :style="{ height: stemH(s) + 'px' }"
@@ -138,7 +140,8 @@ const airStyle = (a, i) => ({
       </button>
     </div>
 
-    <button v-for="w in windy" :key="'w' + w.s.id" class="wind-seed" :style="windStyle(w)"
+    <button v-for="w in windy" :key="'w' + w.s.id" class="wind-seed"
+      :class="{ fresh: fresh === w.s.id }" :data-id="w.s.id" :style="windStyle(w)"
       :aria-label="w.s.title" @click.stop="emit('open', w.s)">
       <svg class="wind-wisp" viewBox="0 0 76 26" aria-hidden="true">
         <path d="M2 19 C 18 9, 33 24, 48 14 C 58 7, 67 10, 74 5"/>
@@ -217,6 +220,15 @@ const airStyle = (a, i) => ({
 .wind-seed:hover { z-index: 12; color: var(--wood); }
 .wind-seed:hover .seed-sign, .wind-seed:focus-visible .seed-sign {
   opacity: 1; visibility: visible; translate: 0 0; }
+/* 刚从封存里种回来：虚线绕一圈，牌子也亮出来 */
+.ground-seed.fresh, .wind-seed.fresh { z-index: 19; color: var(--wood); }
+.ground-seed.fresh .seed-sign, .wind-seed.fresh .seed-sign {
+  opacity: 1; visibility: visible; translate: 0 0; }
+.ground-seed.fresh::after, .wind-seed.fresh::after {
+  content: ''; position: absolute; inset: -9px; border-radius: 50%;
+  border: 1.3px dashed color-mix(in srgb, var(--wood) 55%, transparent);
+  pointer-events: none; animation: findRing 1.4s ease-in-out infinite alternate; }
+@keyframes findRing { from { opacity: .2; transform: scale(.94); } to { opacity: .85; transform: scale(1.02); } }
 @keyframes windFloat {
   0%, 100% { transform: translate(0, 0) rotate(var(--rot)) scale(1); }
   17% { transform: translate(calc(var(--dx) * .42), calc(var(--dy) * -.55)) rotate(calc(var(--rot) + 7deg)) scale(1.04); }

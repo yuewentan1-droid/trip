@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import Glyph from './Glyph.vue';
 import ModalSprig from './ModalSprig.vue';
+import VineScroll from './VineScroll.vue';
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -41,8 +42,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', esc));
           <header class="s-head">
             <span><Glyph name="leaf" :size="15"/> 摊开写</span>
           </header>
-          <textarea ref="box" :value="modelValue" :maxlength="max" :placeholder="placeholder"
-            aria-label="摊开写" @input="emit('update:modelValue', $event.target.value)"/>
+          <div class="s-well">
+            <textarea ref="box" :value="modelValue" :maxlength="max" :placeholder="placeholder"
+              aria-label="摊开写" @input="emit('update:modelValue', $event.target.value)"/>
+            <VineScroll :el="box"/>
+          </div>
           <footer class="s-foot">
             <span>{{ len }} / {{ max }}</span>
             <button type="button" @click="shut">收回来</button>
@@ -72,8 +76,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', esc));
 .s-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding-bottom: 8px; color: var(--wood); font-size: var(--fs-md); letter-spacing: .08em; }
 .s-head span { display: inline-flex; align-items: center; gap: 6px; }
-.spread-sheet textarea { flex: 1; min-height: 0; width: 100%; padding: 10px 4px; border: none;
-  font-size: var(--fs-read); line-height: 1.95; color: var(--ink); background: transparent; }
+.s-well { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.spread-sheet textarea { flex: 1; min-height: 0; width: 100%; padding: 10px 26px 10px 4px; border: none;
+  font-size: var(--fs-read); line-height: 1.95; color: var(--ink); background: transparent;
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.spread-sheet textarea::-webkit-scrollbar { display: none; }
 .spread-sheet textarea:focus { outline: none; }
 .s-foot { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 14px;
   padding-top: 8px; border-top: 1.1px dashed rgba(150, 133, 100, .38);
