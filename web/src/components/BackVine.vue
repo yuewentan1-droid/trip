@@ -65,14 +65,18 @@ function leave(e) {
       <i class="bvine-knot"/>
       <span v-if="showTag" class="bvine-tag">{{ backName }}</span>
     </button>
-    <svg class="bvine-ink" viewBox="0 0 120 460" preserveAspectRatio="none" aria-hidden="true">
+    <svg class="bvine-ink" viewBox="0 0 120 460" preserveAspectRatio="none" aria-hidden="true" @click="leave">
       <g v-for="(v, i) in VINES" :key="i" class="bvine-strand" :style="{ '--d': i * -2.1 + 's' }">
         <path :d="v.d" :style="{ strokeWidth: v.w, opacity: v.o }"/>
+      </g>
+      <!-- 藤蔓本身接人的手：顺着茎和叶点，空白处照常滚页面 -->
+      <g class="bvine-hand">
+        <path v-for="(v, i) in VINES" :key="'h' + i" :d="v.d"/>
       </g>
     </svg>
     <span v-for="(l, i) in LEAVES" :key="'l' + i" class="bvine-leaf"
       :style="{ left: l.x / 1.2 + '%', top: l.y / 4.6 + '%', width: l.s + 'px', height: l.s + 'px',
-        '--dur': l.dur + 's', '--delay': l.delay + 's', '--r': l.rot + 'deg' }">
+        '--dur': l.dur + 's', '--delay': l.delay + 's', '--r': l.rot + 'deg' }" @click="leave">
       <img :src="l.uri" alt=""/>
     </span>
     <span v-for="(f, i) in FLITS" :key="'f' + i" class="bvine-flit"
@@ -90,7 +94,7 @@ function leave(e) {
   height: 100%; color: var(--wood); transform-origin: 32% 0;
   pointer-events: none;
   animation: bvineSway 23s ease-in-out -7s infinite; }
-/* 藤还是整幅垂着，但只有梢上那块小木牌接人的手：不挡左边一溜的滚动 */
+/* 藤还是整幅垂着；木牌和小结留在梢上，给键盘和头一回进院的人一个明确的落点 */
 .bvine-hit { position: absolute; left: 6px; top: calc(env(safe-area-inset-top) + 66px); z-index: 3;
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   padding: 4px 2px 7px; color: inherit; pointer-events: auto; -webkit-tap-highlight-color: transparent; }
@@ -110,15 +114,21 @@ function leave(e) {
   animation: strandSway 17s ease-in-out var(--d, 0s) infinite alternate; transform-origin: 50% 0; }
 .bvine-strand:nth-child(2n) path { stroke: var(--grass-deep); }
 .bvine-strand:nth-child(3n) path { stroke: var(--grass); }
+/* 藤茎铺一条透明的抓手，只有茎和叶接人的手，藤外的空白还能滚 */
+.bvine-hand path { fill: none; stroke: transparent; stroke-width: 20; stroke-linecap: round;
+  vector-effect: non-scaling-stroke; pointer-events: stroke; cursor: pointer; }
 /* 叶片和飞虫挂在藤上，不跟着藤一道拉长，只在自己的位置上摇 */
 .bvine-leaf, .bvine-flit { position: absolute; translate: -50% -50%; transform-origin: center;
   pointer-events: none; }
 .bvine-leaf img, .bvine-flit img { display: block; width: 100%; height: 100%; object-fit: contain;
   transform: rotate(var(--r, 0deg)); }
-.bvine-leaf { animation: bvineLeaf var(--dur, 13s) ease-in-out var(--delay, 0s) infinite alternate; }
+.bvine-leaf { pointer-events: auto; cursor: pointer;
+  animation: bvineLeaf var(--dur, 13s) ease-in-out var(--delay, 0s) infinite alternate; }
 .bvine-flit { animation: bvineFlit var(--dur, 22s) ease-in-out var(--delay, 0s) infinite alternate; }
-.bvine:has(.bvine-hit:hover) { color: var(--clay); }
-.bvine:has(.bvine-hit:hover) .bvine-strand path { stroke: var(--clay); }
+.bvine:has(.bvine-hit:hover), .bvine:has(.bvine-hand path:hover), .bvine:has(.bvine-leaf:hover) { color: var(--clay); }
+.bvine:has(.bvine-hit:hover) .bvine-strand path,
+.bvine:has(.bvine-hand path:hover) .bvine-strand path,
+.bvine:has(.bvine-leaf:hover) .bvine-strand path { stroke: var(--clay); }
 .bvine-hit:hover .bvine-tag { background: color-mix(in srgb, var(--paper) 92%, transparent);
   box-shadow: inset 0 0 0 1px rgba(139, 107, 74, .58); }
 .bvine-hit:active .bvine-tag { transform: translateY(1px) rotate(-1deg); }

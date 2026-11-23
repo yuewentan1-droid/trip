@@ -178,7 +178,8 @@ async function reply(m) {
 .n-head { display: flex; align-items: center; gap: 5px; min-width: 0; }
 .n-face { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 27px; flex: none;
   padding-bottom: 1px; line-height: 1;
-  border: 1.1px solid #C9B99A; border-radius: 47% 53% 50% 50% / 52% 48% 54% 46%;
+  border: 1.1px solid color-mix(in srgb, var(--fence) 75%, transparent);
+  border-radius: 47% 53% 50% 50% / 52% 48% 54% 46%;
   font-size: var(--fs-sm); color: var(--wood); }
 .n-name { flex: 1; min-width: 0; font-size: var(--fs-md); color: var(--wood);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -195,11 +196,13 @@ async function reply(m) {
 .n-back:hover { color: var(--grass-deep); }
 /* 篱笆上的话按行排，和敲门一个脾气：人脸在左，话在中间，手脚收在右边 */
 .notes.rows { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 4px 0 8px; }
-.note-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px 11px;
-  background: var(--card); border: 1.1px dashed rgba(150, 133, 100, .38);
+.note-row { --paper-bed: color-mix(in srgb, var(--card) 46%, var(--paper-2));
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px 11px;
+  background: var(--paper-bed); border: 1.1px dashed rgba(150, 133, 100, .38);
   border-radius: var(--r-a); cursor: pointer; transition: background .3s, box-shadow .3s; }
 .note-row:hover { box-shadow: var(--emboss); }
-.note-row.old { background: rgba(126, 154, 95, .07); }
+/* 回过的纸在篱笆上多放些日子，纸色往草里退一档，与没回的差得出来 */
+.note-row.old { background: color-mix(in srgb, var(--grass) 12%, var(--paper-bed)); }
 .note-row .n-face { width: 29px; height: 30px; }
 .nr-main { flex: 1; min-width: 0; }
 .nr-acts { display: flex; align-items: center; gap: 12px; flex: none; }
@@ -231,7 +234,8 @@ async function reply(m) {
 .nw-say { margin-top: 11px; font-size: var(--fs-read); line-height: 1.9; letter-spacing: .02em;
   color: var(--ink); white-space: pre-wrap; word-break: break-word; }
 .nw-reply { display: flex; align-items: flex-start; gap: 6px; margin-top: 14px; padding: 7px 9px 8px;
-  font-size: var(--fs-base); line-height: 1.85; color: var(--ink-soft); background: rgba(126, 154, 95, .09);
+  font-size: var(--fs-base); line-height: 1.85; color: var(--ink-soft);
+  background: color-mix(in srgb, var(--grass) 9%, transparent);
   border-radius: 4px 14px 5px 12px / 12px 5px 14px 6px; transform: rotate(.4deg); }
 .nw-reply :deep(svg) { color: var(--grass-deep); margin-top: 3px; }
 .nw-reply b { font-weight: normal; color: var(--grass-deep); }

@@ -194,19 +194,19 @@ async function enter(k) {
     <nav class="f-tabs">
       <button :class="{ on: tab === 'notes' && noteScope === 'in' }" @click="showNotes('in')">
         <Glyph name="leaf" :size="17"/> 收到的
-        <i v-if="notice.messages">{{ notice.messages }}</i>
+        <i v-if="notice.messages" class="n-count">{{ notice.messages }}</i>
       </button>
       <button :class="{ on: tab === 'notes' && noteScope === 'out' }" @click="showNotes('out')">
         <Glyph name="pen" :size="17"/> 我留的
-        <i v-if="notice.sent">{{ notice.sent }}</i>
+        <i v-if="notice.sent" class="n-count">{{ notice.sent }}</i>
       </button>
       <button :class="{ on: tab === 'notes' && noteScope === 'old' }" @click="showNotes('old')">
         <Glyph name="daisy" :size="17"/> 旧回音
-        <i v-if="notice.replied">{{ notice.replied }}</i>
+        <i v-if="notice.replied" class="n-count">{{ notice.replied }}</i>
       </button>
       <button :class="{ on: tab === 'knocks' }" @click="showKnocks">
         <Glyph name="home" :size="17"/> 敲门
-        <i v-if="doorCount + openedFresh">{{ doorCount + openedFresh }}</i>
+        <i v-if="doorCount + openedFresh" class="n-count">{{ doorCount + openedFresh }}</i>
       </button>
     </nav>
 
@@ -282,7 +282,9 @@ async function enter(k) {
   letter-spacing: .06em; padding: 1px 2px 5px; transition: color .3s; }
 .f-tabs button.on { color: var(--wood); text-decoration: underline wavy rgba(139, 107, 74, .6) 1px;
   text-underline-offset: 6px; }
-.f-tabs i { font-style: normal; font-size: var(--fs-xs); color: var(--grass-deep); }
+/* 记号跟着字的墨走，只有数字留一点晒过草的绿，不抢手写的画 */
+.f-tabs .n-count { font-style: normal; font-size: var(--fs-xs);
+  color: color-mix(in srgb, var(--grass-deep) 55%, var(--ink-soft)); }
 .f-loading, .f-empty { text-align: center; font-size: var(--fs-md); color: var(--ink-faint); letter-spacing: .06em;
   padding: 24px 0; }
 .knock-block { margin-bottom: 18px; }
@@ -293,7 +295,8 @@ async function enter(k) {
   border-radius: var(--r-a); }
 .knock-row.opened { background: rgba(126, 154, 95, .07); }
 .k-face { display: inline-grid; place-items: center; width: 25px; height: 26px; flex: none;
-  border: 1.2px solid #C9B99A; border-radius: 47% 53% 50% 50% / 52% 48% 54% 46%;
+  border: 1.2px solid color-mix(in srgb, var(--fence) 75%, transparent);
+  border-radius: 47% 53% 50% 50% / 52% 48% 54% 46%;
   font-size: var(--fs-xs); color: var(--wood); }
 .k-say { flex: 1; min-width: 0; font-size: var(--fs-md); color: var(--ink); }
 .k-say b { font-weight: normal; color: var(--wood); }

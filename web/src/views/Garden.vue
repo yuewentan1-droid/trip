@@ -521,7 +521,8 @@ onMounted(() => {
 .g-links button:hover, .g-links a:hover { color: var(--wood); }
 /* 篱笆上的话搬到题头，字和主页「我的田地」一样大 */
 .g-links .g-fence { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-head); }
-.g-fence i { font-style: normal; font-size: var(--fs-base); color: var(--grass-deep); }
+.g-fence i { font-style: normal; font-size: var(--fs-base);
+  color: color-mix(in srgb, var(--grass-deep) 55%, var(--ink-soft)); }
 .g-links .fence-write, .g-links .fence-back { font-size: var(--fs-head); color: var(--wood); }
 .g-back { text-decoration: underline wavy rgba(139, 107, 74, .4) 1px; text-underline-offset: 6px; }
 .knock-open { color: var(--grass-deep); font-size: var(--fs-sm); }
@@ -555,11 +556,9 @@ onMounted(() => {
   z-index: 21; pointer-events: none; }
 
 /* ——— 右墙：一段老篱笆，藤顺着话往下垂，翻多少话藤就多长 ——— */
+/* 篱笆直接立在院子的纸上，不另铺一块底，跟原野是同一张纸 */
 /* 篱笆压在风里的地后面：风里的字飘过来时，仍旧点得中 */
-.fence-rail { position: relative; flex: 0 0 clamp(300px, 27vw, 390px); z-index: 15;
-  border-left: 1.2px dashed rgba(150, 133, 100, .34);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--fence) 26%, var(--paper)),
-    color-mix(in srgb, var(--paper) 88%, transparent)); }
+.fence-rail { position: relative; flex: 0 0 clamp(300px, 27vw, 390px); z-index: 15; }
 /* 篱笆灯：只在夜里亮，一盏旧路灯，几串彩灯缠在木头顶上 */
 .fence-lights { inset: 0 0 auto; height: 72px; z-index: 1; opacity: .82; }
 .fence-lights.down { inset: 60px auto 12px 0; width: 62px; height: auto; opacity: .6; }
@@ -700,7 +699,6 @@ body[data-night="1"] .fence-lamp { display: block; }
   box-shadow: 0 -10px 30px rgba(63, 58, 47, .12); }
 body[data-night="1"] .sheet { border-top-color: rgba(148, 160, 176, .2);
   box-shadow: 0 -10px 34px rgba(5, 9, 15, .34), 0 0 24px rgba(130, 156, 130, .05); }
-body[data-night="1"] .fence-rail { border-left-color: rgba(148, 160, 176, .2); }
 body[data-night="1"] .read-sheet { border-color: rgba(148, 160, 176, .22);
   box-shadow: 0 18px 44px rgba(5, 9, 15, .34); }
 .sheet form { width: min(720px, 100%); margin: 0 auto; }
@@ -741,8 +739,7 @@ body[data-night="1"] .read-sheet { border-color: rgba(148, 160, 176, .22);
     transform: translateX(-50%); display: block; z-index: 16; }
   .g-tree :deep(.ground-seed) { position: absolute; transform: translateX(-50%) rotate(var(--rot)); }
   .g-tree :deep(.ground-seed:hover) { transform: translateX(-50%) rotate(0deg) translateY(-3px); }
-  .fence-rail { flex: 0 0 42%; width: auto; border-left: 0;
-    border-top: 1.2px dashed rgba(150, 133, 100, .34); }
+  .fence-rail { flex: 0 0 42%; width: auto; }
   .fence-sheet { padding-right: 24px; }
 }
 @media (max-width: 720px) {
