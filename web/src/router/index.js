@@ -16,8 +16,9 @@ const router = createRouter({ history: createWebHistory(), routes });
 
 router.beforeEach(to => {
   const token = localStorage.getItem('token');
-  const open = to.path === '/login' || to.path === '/register' || to.path === '/visits' || to.path === '/town' || to.path.startsWith('/garden/');
-  if (!token && !open) return '/login';
+  const open = to.path === '/login' || to.path === '/register' || to.path === '/visits'
+    || to.path.startsWith('/garden/');
+  if (!token && !open) return { path: '/login', query: { to: to.fullPath } };
   if (token && (to.path === '/login' || to.path === '/register')) return '/';
 });
 

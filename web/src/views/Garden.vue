@@ -124,6 +124,7 @@ async function loadKeeps() {
 async function toggleKeep() {
   const sid = read.value?.session?.id;
   if (!sid || keepBusy.value) return;
+  if (!user.isLogin) return router.push({ path: '/login', query: { to: route.fullPath } });
   keepBusy.value = true;
   try {
     if (keeps.value.has(sid)) {
@@ -263,7 +264,8 @@ function fitBox() {
 }
 
 function write() {
-  if (mine.value || !user.isLogin) return;
+  if (mine.value) return;
+  if (!user.isLogin) return router.push({ path: '/login', query: { to: route.fullPath } });
   draft.value = '';
   note.value = '';
   sent.value = false;
@@ -479,12 +481,14 @@ onMounted(() => {
               </template>
               <p v-else class="read-loading">{{ readBusy ? '叶子还在翻' : '这片叶子是空的' }}</p>
             </div>
-            <div v-if="read && !mine && user.isLogin" class="read-keep">
+            <div v-if="read && !mine" class="read-keep">
               <button :disabled="keepBusy" @click="toggleKeep">
                 <Glyph name="leaf" :size="16"/>
-                {{ keeps.has(read.session.id) ? '夹在书里了 · 再点取出' : '夹一片，收进我的书里' }}
+                {{ !user.isLogin ? '登录后夹一片，收进我的书里'
+                  : keeps.has(read.session.id) ? '夹在书里了 · 再点取出' : '夹一片，收进我的书里' }}
               </button>
-              <span>{{ keeps.has(read.session.id) ? '已经收好，再点一下就从书里取出来' : '主人收起来，这片也还留在你这儿' }}</span>
+              <span>{{ !user.isLogin ? '喜欢的叶子，登录后就能夹进自己的书里'
+                : keeps.has(read.session.id) ? '已经收好，再点一下就从书里取出来' : '主人收起来，这片也还留在你这儿' }}</span>
             </div>
             <VineScroll :el="readBody"/>
           </article>

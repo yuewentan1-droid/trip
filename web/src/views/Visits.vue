@@ -52,6 +52,7 @@ function pick(key) {
   sort.value = key;
   load(1);
 }
+// 敞着门的院子谁都能进；留话、收藏、回复的时候再登录
 const open = g => router.push('/garden/' + g.id);
 
 onMounted(() => load(1));

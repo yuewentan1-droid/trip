@@ -29,7 +29,7 @@ night.init();
 // 篱笆外的动静自己会来：隔一会儿问一声，切回这页也立刻问
 const notice = useNotice();
 let beat;
-const knockBeat = () => notice.load();
+const knockBeat = () => notice.load().catch(() => {});
 const onVisible = () => { if (document.visibilityState === 'visible') knockBeat(); };
 onMounted(() => {
   knockBeat();

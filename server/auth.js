@@ -14,7 +14,7 @@ exports.auth = (req, res, next) => {
   }
 };
 
-// 敞着门的地，路过的人不登录也该能看一眼；围起来的仍然只认主人
+// 串门名册和敞着门的院子给路过的人看；留话、收藏、回复仍然要登录
 exports.maybe = (req, res, next) => {
   const h = req.headers.authorization || '';
   if (h) {

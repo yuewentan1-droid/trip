@@ -15,7 +15,9 @@ http.interceptors.response.use(r => {
   if (code === 401) {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    if (location.pathname !== '/login') location.href = '/login';
+    // 串门名册不用登录，令牌过期也别把人从名册上赶走
+    if (location.pathname !== '/login' && location.pathname !== '/visits')
+      location.href = '/login?to=' + encodeURIComponent(location.pathname + location.search);
   } else if (!r.config.silent) toast(msg);
   const e = new Error(msg);
   e.code = code;
