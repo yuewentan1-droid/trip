@@ -141,8 +141,8 @@ FLUSH PRIVILEGES;
 4. 安装依赖并构建。
 
 ```bash
-cd /srv/trip/server && npm ci --omit=dev
-cd /srv/trip/web && npm ci && npm run build
+cd /srv/trip/server && npm ci --omit=dev --registry=https://registry.npmmirror.com --replace-registry-host=always
+cd /srv/trip/web && npm ci --registry=https://registry.npmmirror.com --replace-registry-host=always && npm run build
 ```
 
 5. 启动并保持运行。
