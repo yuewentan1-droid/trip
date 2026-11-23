@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 一亩心田一键部署脚本（Ubuntu / Debian）
+# 一亩心田一键部署脚本（Ubuntu / Debian / OpenCloudOS 9 等 RHEL 系）
 # 用法：sudo bash deploy.sh [--skip-provision] [--dir /srv/yimuxintian] [--repo 仓库地址]
 set -euo pipefail
 
@@ -27,33 +27,60 @@ done
 
 [ "$(id -u)" -eq 0 ] || fail "请用 root 或 sudo 运行：sudo bash deploy.sh"
 
+# 固定 root 的家目录：MySQL 客户端才能读到脚本写入的 /root/.my.cnf，pm2 的数据也落在 /root/.pm2
+export HOME=/root
+
 # ---------- 1. 系统依赖 ----------
 if [ "$SKIP_PROVISION" -eq 0 ]; then
-  command -v apt-get >/dev/null 2>&1 \
-    || fail "本脚本的自动安装只覆盖 Ubuntu/Debian。其他系统请先装好 Node.js 18+、MySQL 8、Git、pm2，再加 --skip-provision 重跑"
+  if command -v apt-get >/dev/null 2>&1; then
+    log "安装系统依赖（git / curl / MySQL 8）"
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -y
+    apt-get install -y git curl ca-certificates openssl mysql-server
 
-  log "安装系统依赖（git / curl / MySQL 8）"
-  export DEBIAN_FRONTEND=noninteractive
-  apt-get update -y
-  apt-get install -y git curl ca-certificates openssl mysql-server
+    node_major=0
+    if command -v node >/dev/null 2>&1; then
+      node_major=$(node -p 'process.versions.node.split(".")[0]')
+    fi
+    if [ "$node_major" -lt 18 ]; then
+      log "安装 Node.js 20"
+      curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+      apt-get install -y nodejs
+    fi
 
-  node_major=0
-  if command -v node >/dev/null 2>&1; then
-    node_major=$(node -p 'process.versions.node.split(".")[0]')
+    systemctl enable --now mysql 2>/dev/null || systemctl enable --now mysqld 2>/dev/null || true
+  elif command -v dnf >/dev/null 2>&1; then
+    # OpenCloudOS 9 / RHEL 9 系：AppStream 自带 Node.js 20 和 MySQL 8
+    log "安装系统依赖（OpenCloudOS / RHEL 系：git / curl / Node.js / MySQL 8）"
+    dnf install -y git curl ca-certificates openssl
+    dnf install -y nodejs
+
+    if ! dnf install -y mysql-server; then
+      log "源里没有 mysql-server，尝试 mysql-community-server"
+      if ! dnf install -y mysql-community-server; then
+        log "再尝试 AppStream 的 mysql 包"
+        dnf install -y mysql \
+          || fail "没装上 MySQL 8。若机器预装了 MariaDB，请先 dnf remove -y 'mariadb*' 再重跑；也可以手动安装 MySQL 8 后加 --skip-provision"
+      fi
+    fi
+
+    if ! command -v mysqld >/dev/null 2>&1 && [ ! -x /usr/sbin/mysqld ]; then
+      fail "只装上了 mysql 客户端，没找到 mysqld 服务端。请手动安装 MySQL 8 后加 --skip-provision 重跑"
+    fi
+
+    systemctl enable --now mysqld 2>/dev/null || systemctl enable --now mysql 2>/dev/null || true
+  else
+    fail "未识别的包管理器：自动安装只覆盖 apt（Ubuntu/Debian）和 dnf（OpenCloudOS/RHEL 系）。其他系统请先装好 Node.js 18+、MySQL 8、Git、pm2，再加 --skip-provision 重跑"
   fi
-  if [ "$node_major" -lt 18 ]; then
-    log "安装 Node.js 20"
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    apt-get install -y nodejs
-  fi
-
-  systemctl enable --now mysql 2>/dev/null || systemctl enable --now mysqld 2>/dev/null || true
 fi
 
 command -v node  >/dev/null 2>&1 || fail "没找到 node，请先安装 Node.js 18+"
 command -v npm   >/dev/null 2>&1 || fail "没找到 npm，请先安装 Node.js 18+"
 command -v mysql >/dev/null 2>&1 || fail "没找到 mysql 客户端，请先安装 MySQL 8"
 command -v git   >/dev/null 2>&1 || fail "没找到 git"
+
+node_major=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)
+[ "$node_major" -ge 18 ] || fail "Node.js 版本过低（当前 $(node -v)），请升级到 18+ 后重试"
 
 # ---------- 2. 拉代码 ----------
 log "拉取代码到 $APP_DIR"
@@ -92,7 +119,7 @@ rand_hex() {
     head -c "$1" /dev/urandom | od -An -tx1 | tr -d ' \n'
   fi
 }
-[ -n "$DB_PASS" ] || DB_PASS=$(rand_hex 16)
+[ -n "$DB_PASS" ] || DB_PASS="$(rand_hex 16)Aa1!"
 [ -n "$JWT_SECRET" ] || JWT_SECRET=$(rand_hex 32)
 
 log "写入 server/.env"
@@ -108,6 +135,44 @@ EOF
 chmod 600 "$ENV_FILE"
 
 # ---------- 4. 数据库 ----------
+mysql_ready() {
+  mysql -e 'SELECT 1' >/dev/null 2>&1
+}
+
+prepare_mysql_root() {
+  local i logfile line temp_pass new_pass
+
+  for i in 1 2 3; do
+    mysql_ready && return 0
+    sleep 1
+  done
+
+  # OpenCloudOS / RHEL 系首次安装时，root 只有一个过期的临时密码。
+  # 从初始化日志里读出来，换成本机随机密码并写进 /root/.my.cnf，建库和重跑都能直接用。
+  temp_pass=""
+  for logfile in /var/log/mysqld.log /var/log/mysql/mysqld.log /var/log/mysql/error.log; do
+    [ -r "$logfile" ] || continue
+    line=$(grep 'temporary password' "$logfile" 2>/dev/null | tail -1 || true)
+    if [ -n "$line" ]; then
+      temp_pass=${line##*: }
+      break
+    fi
+  done
+
+  if [ -n "$temp_pass" ] && [ ! -f /root/.my.cnf ]; then
+    new_pass="$(rand_hex 20)Aa1!"
+    log "初始化 MySQL root 密码（会写入 /root/.my.cnf）"
+    if MYSQL_PWD="$temp_pass" mysql -uroot -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$new_pass';" >/dev/null 2>&1; then
+      ( umask 077; printf '[client]\nuser=root\npassword=%s\n' "$new_pass" > /root/.my.cnf )
+      mysql_ready || true
+    fi
+  fi
+
+  mysql_ready || fail "无法用 root 连接 MySQL。请检查 mysqld 是否已启动（systemctl status mysqld），并配置好 /root/.my.cnf（或让 root 免密登录）；也可以先手动建库建用户再加 --skip-provision 重跑"
+}
+
+prepare_mysql_root
+
 log "准备数据库 $DB_NAME"
 has_topics=$(mysql -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name='topics'" 2>/dev/null || echo 0)
 if [ "$has_topics" = "0" ]; then
