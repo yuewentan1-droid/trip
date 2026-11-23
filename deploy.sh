@@ -207,7 +207,14 @@ fi
 if [ "$official" = "5" ]; then
   echo "官方账号都齐了"
 else
-  echo "提醒：官方账号还缺，可能昵称被普通用户占着；先处理占用，别删线上数据"
+  echo "官方账号还缺，先看是谁占了名字："
+  mysql --default-character-set=utf8mb4 -N -B "$DB_NAME" -e "
+    SELECT id, username, nickname, garden_name
+    FROM users
+    WHERE username IN ('风过篱笆','土里长歌','五棵树下','藤爬半坡','官方','一亩心田')
+       OR nickname IN ('风过篱笆','土里长歌','五棵树下','藤爬半坡','官方','一亩心田')
+    ORDER BY id;" 2>/dev/null || true
+  fail "官方账号不齐：按上面的行处理旧名或昵称占用；只有四行时手动跑 official-ensure.sql --show-warnings 看原因。脚本不会删人，也不会覆盖线上数据"
 fi
 
 mysql <<SQL

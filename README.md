@@ -79,7 +79,7 @@ npm --prefix server run seed
 mysql -u root -p deep_thinking < server/sql/official.sql
 ```
 
-脚本可以重复跑，每次都会先收掉这四个账号原来的地，再重新种。
+这份脚本只给空库用：`users` 里只要有一行，`seed_guard` 就会拦下；它不会删除或重种任何账号。
 
 ## 环境变量
 
@@ -108,7 +108,7 @@ curl -fsSL https://raw.githubusercontent.com/yuewentan1-droid/trip/main/deploy.s
 sudo bash deploy.sh
 ```
 
-脚本会自动识别 apt 或 dnf，完成下面手动步骤里的 1–5：装 Node.js 20、MySQL 8、PM2，建库并导入默认话题，库里还没有官方账号时顺手种上四块官方的田，生成带随机数据库密码和 `JWT_SECRET` 的 `.env`，构建前端并常驻启动，最后做健康检查。
+脚本会自动识别 apt 或 dnf，完成下面手动步骤里的 1–5：装 Node.js 20、MySQL 8、PM2，建库并导入默认话题，空库里顺手种上五个官方账号，生成带随机数据库密码和 `JWT_SECRET` 的 `.env`，构建前端并常驻启动，最后做健康检查。
 
 重跑是安全的：已有的 `.env`、数据库和 `server/uploads` 都会保留，只拉新代码、重新构建并重启。在 OpenCloudOS / RHEL 系上，脚本还会把 MySQL root 的初始临时密码换成随机密码并写入 `/root/.my.cnf`，用于建库和后续重跑。其他发行版（非 apt/dnf）请先自行装好 Node.js 18+、MySQL 8、Git、pm2，再加 `--skip-provision` 运行。
 

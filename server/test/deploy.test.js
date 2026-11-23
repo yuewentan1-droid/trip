@@ -55,3 +55,12 @@ test('部署先过 P0 用户权限与隐私用例，再构建上线', () => {
   assert.ok(sh.indexOf('npm test') < sh.indexOf('npm --prefix "$APP_DIR/web" run build'),
     '用例不通过就不能构建上线');
 });
+
+test('官方账号补不齐就停下，先打印占名的行', () => {
+  const sh = read('deploy.sh');
+  assert.doesNotMatch(sh, /提醒：官方账号还缺/);
+  assert.match(sh, /nickname IN \('风过篱笆'/);
+  assert.match(sh, /fail "官方账号不齐/);
+  assert.ok(sh.indexOf('官方账号不齐') < sh.indexOf('npm --prefix "$APP_DIR/web" run build'),
+    '官方账号不齐时不能继续构建');
+});
