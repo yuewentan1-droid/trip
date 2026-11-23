@@ -66,7 +66,7 @@ npm --prefix server start
 | `五棵树下` | 五棵树全部种满 |
 | `藤爬半坡` | 一、三、五棵树种满，二、四两棵各十片；地上、风里也满；第四棵树里有一片挖到第三百层，叶子下挂三百滴 |
 
-部署完成后，在项目根目录执行：
+一键部署在空库上会自动种好这四块田；库里已经有官方账号时不会重种，留住篱笆上来往的话。想重新种，在项目根目录执行：
 
 ```bash
 npm --prefix server run seed
@@ -107,7 +107,7 @@ curl -fsSL https://raw.githubusercontent.com/yuewentan1-droid/trip/main/deploy.s
 sudo bash deploy.sh
 ```
 
-脚本会自动识别 apt 或 dnf，完成下面手动步骤里的 1–5：装 Node.js 20、MySQL 8、PM2，建库并导入默认话题，生成带随机数据库密码和 `JWT_SECRET` 的 `.env`，构建前端并常驻启动，最后做健康检查。
+脚本会自动识别 apt 或 dnf，完成下面手动步骤里的 1–5：装 Node.js 20、MySQL 8、PM2，建库并导入默认话题，库里还没有官方账号时顺手种上四块官方的田，生成带随机数据库密码和 `JWT_SECRET` 的 `.env`，构建前端并常驻启动，最后做健康检查。
 
 重跑是安全的：已有的 `.env`、数据库和 `server/uploads` 都会保留，只拉新代码、重新构建并重启。在 OpenCloudOS / RHEL 系上，脚本还会把 MySQL root 的初始临时密码换成随机密码并写入 `/root/.my.cnf`，用于建库和后续重跑。其他发行版（非 apt/dnf）请先自行装好 Node.js 18+、MySQL 8、Git、pm2，再加 `--skip-provision` 运行。
 

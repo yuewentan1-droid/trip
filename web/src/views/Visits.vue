@@ -8,6 +8,7 @@ import BackVine from '../components/BackVine.vue';
 import TreeMark from '../components/TreeMark.vue';
 import VineScroll from '../components/VineScroll.vue';
 import FieldPager from '../components/FieldPager.vue';
+import FenceDialog from '../components/FenceDialog.vue';
 
 const router = useRouter();
 const FILTERS = [
@@ -15,6 +16,17 @@ const FILTERS = [
   { key: 'recent', label: '最近有人说话' },
   { key: 'high', label: '树长得高的' }
 ];
+// 城里的六处去处：门都虚掩着，先认认路，等拾掇好了再开
+const TOWN = [
+  { key: 'market', name: '种子市集', icon: 'sprout', line: '新到的种子还装在麻袋里，没顾上摊开。' },
+  { key: 'tea', name: '老茶馆', icon: 'chat', line: '灶上的水刚响，长凳还倒扣在桌上。' },
+  { key: 'forge', name: '铁匠铺', icon: 'gear', line: '炉子封着，锤子挂在墙上，等一炉好炭。' },
+  { key: 'board', name: '布告墙', icon: 'pin', line: '浆糊刚刷上，头一张告示还空着。' },
+  { key: 'post', name: '邮驿', icon: 'send', line: '驿马在槽边吃草，邮袋还没装满。' },
+  { key: 'stage', name: '戏台', icon: 'horn', line: '锣鼓还没抬上来，台前的长凳先摆好了。' }
+];
+const channel = ref('visit');
+const townPick = ref(null);
 const sort = ref('all');
 const q = ref('');
 const items = ref([]);
@@ -54,6 +66,13 @@ function pick(key) {
   sort.value = key;
   load(1);
 }
+// 串门走够了，拐去城里看看；两条路都从纸页最上头重新起头
+function goChannel(key) {
+  if (key === channel.value) return;
+  channel.value = key;
+  townPick.value = null;
+  mainBody.value.scrollTop = 0;
+}
 const open = g => router.push('/garden/' + g.id);
 
 onMounted(() => load(1));
@@ -64,9 +83,17 @@ onMounted(() => load(1));
     <BackVine/>
     <header class="v-head">
       <div class="v-inner">
-        <h1>串门</h1>
-        <p class="v-sub">—— 别人的几块地，敞着就进，围着就敲</p>
-        <div class="v-tools">
+        <h1 class="v-ways">
+          <button :class="{ on: channel === 'visit' }" :aria-pressed="channel === 'visit'"
+            @click="goChannel('visit')">串门</button>
+          <i aria-hidden="true">·</i>
+          <button :class="{ on: channel === 'town' }" :aria-pressed="channel === 'town'"
+            @click="goChannel('town')">进城</button>
+        </h1>
+        <p class="v-sub">{{ channel === 'visit'
+          ? '—— 别人的几块地，敞着就进，围着就敲'
+          : '—— 田埂走到头，有瓦檐、有炊烟，也有人声' }}</p>
+        <div v-if="channel === 'visit'" class="v-tools">
           <nav class="filters" aria-label="挑选门牌">
             <button v-for="f in FILTERS" :key="f.key" :class="{ on: sort === f.key }"
               :aria-pressed="sort === f.key" @click="pick(f.key)">{{ f.label }}</button>
@@ -85,6 +112,27 @@ onMounted(() => load(1));
     <div class="main-wrap">
     <main ref="mainBody" class="roll">
       <div class="v-inner pad">
+        <template v-if="channel === 'town'">
+          <p class="town-lead">
+            <Glyph name="flag" :size="14"/>
+            城里的路还在铺，这六处门都虚掩着。先认认门，等开张了再来。
+          </p>
+          <div class="grid">
+            <article v-for="(t, i) in TOWN" :key="t.key" class="visit-card town-card" tabindex="0" role="button"
+              :style="{ '--drop': (i % 6) * 5 + 'px' }" @click="townPick = t" @keydown.enter="townPick = t">
+              <svg class="byline" viewBox="0 0 3 120" preserveAspectRatio="none" aria-hidden="true">
+                <path pathLength="1" d="M1.5 119 C 2.3 92, .8 76, 1.4 55 C 2 34, .9 18, 1.5 1"/>
+              </svg>
+              <span class="avatar town-avatar"><Glyph :name="t.icon" :size="22"/></span>
+              <h2>{{ t.name }}</h2>
+              <p class="stat closed"><Glyph name="home" :size="12"/> 门还关着</p>
+              <p class="seed">{{ t.line }}</p>
+              <p class="talk town-go">敲敲看</p>
+            </article>
+          </div>
+        </template>
+
+        <template v-else>
         <div v-if="!ready" class="seeds" aria-label="地在翻土">
           <span/><span/><span/>
         </div>
@@ -142,14 +190,25 @@ onMounted(() => load(1));
           </div>
           <div v-if="loading" class="seeds small"><span/><span/><span/></div>
         </template>
+        </template>
       </div>
     </main>
     <VineScroll :el="mainBody"/>
     </div>
 
-    <footer v-if="ready && pages > 1" class="foot">
+    <footer v-if="channel === 'visit' && ready && pages > 1" class="foot">
       <FieldPager :page="page" :pages="pages" @go="load"/>
     </footer>
+
+    <FenceDialog :open="!!townPick" :title="townPick ? townPick.name : '进城'" note="敬请开放" slim keep-close
+      @close="townPick = null">
+      <div v-if="townPick" class="soon">
+        <Glyph :name="townPick.icon" :size="46"/>
+        <p class="soon-line">{{ townPick.line }}</p>
+        <p class="soon-soft">城里的路还没铺平，门板也刚上过漆。等拾掇利落了，再请你进来坐。</p>
+        <button class="to-mine" @click="townPick = null">先在城外站一会儿</button>
+      </div>
+    </FenceDialog>
   </div>
 </template>
 
@@ -161,6 +220,13 @@ onMounted(() => load(1));
   padding: max(18px, env(safe-area-inset-top)) 0 18px; position: relative; z-index: 2; }
 .v-inner { width: 100%; margin: 0 auto; padding: 0 max(24px, 4vw); }
 h1 { font-size: var(--fs-hero); font-weight: 400; letter-spacing: 2px; color: var(--ink); }
+/* 村口两条路：串门在左，进城在右；没走的那条退成灰，像岔路口另一块旧木牌 */
+.v-ways { display: flex; align-items: baseline; gap: 9px; }
+.v-ways button { letter-spacing: inherit; color: var(--ink-faint); opacity: .5; padding: 0;
+  transition: color .3s, opacity .3s; }
+.v-ways button.on { color: var(--ink); opacity: 1; }
+.v-ways button:hover { color: var(--wood); opacity: .9; }
+.v-ways i { font-style: normal; font-size: .58em; color: var(--ink-faint); opacity: .5; }
 .v-sub { margin-top: 2px; font-size: var(--fs-base); letter-spacing: 1px; color: var(--ink-soft); }
 .v-tools { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px 28px;
   flex-wrap: wrap; margin-top: 24px; }
@@ -189,6 +255,13 @@ main { flex: 1; min-width: 0; min-height: 0; }
 /* 十块地一页：先六块，再四块；翻页了就换下一捆 */
 .grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 30px 22px; align-items: start; padding-top: 8px; }
+/* 城里：先摆一排去处，门关着，路先认下 */
+.town-lead { display: flex; align-items: center; gap: 6px; padding: 7px 0 1px;
+  font-size: var(--fs-sm); letter-spacing: .06em; color: var(--ink-faint); }
+.town-lead :deep(.gl) { color: var(--grass-deep); opacity: .7; }
+.town-avatar { color: var(--grass-deep); }
+.town-card .seed { max-width: 26em; }
+.town-go { color: var(--wood); opacity: .82; }
 
 /* 门牌就是纸上几行字：没有边框，没有卡片底，靠留白站住 */
 .visit-card { position: relative; margin-top: var(--drop); padding: 4px 0 18px; cursor: pointer;
@@ -244,6 +317,14 @@ h2 { margin-top: 12px; font-size: var(--fs-read); font-weight: 400; letter-spaci
 .to-mine { margin-top: 24px; font-size: var(--fs-base); color: var(--wood); letter-spacing: 1px;
   text-decoration: underline wavy rgba(139, 107, 74, .65) 1px; text-underline-offset: 6px; }
 .empty-one { text-align: center; padding: 18vh 0; font-size: var(--fs-base); letter-spacing: 1px; color: var(--ink-soft); }
+
+/* 点了门，门里递出一张纸：这几处都还没开，话说在前头 */
+.soon { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 16px 0 10px; }
+.soon :deep(.gl) { color: var(--grass-deep); opacity: .78; }
+.soon-line { margin-top: 14px; font-size: var(--fs-base); line-height: 1.9; letter-spacing: 1px; color: var(--ink-soft); }
+.soon-soft { margin-top: 8px; max-width: 34em; font-size: var(--fs-sm); line-height: 1.9;
+  letter-spacing: .06em; color: var(--ink-faint); }
+.soon .to-mine { margin-top: 18px; }
 
 @keyframes nod { 0%, 100% { transform: translateX(0); } 30% { transform: translateX(-1.5px); } 70% { transform: translateX(1.5px); } }
 

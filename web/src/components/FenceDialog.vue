@@ -11,6 +11,7 @@ defineProps({
   title: { type: String, default: '' },
   note: { type: String, default: '' },
   wide: Boolean,
+  slim: Boolean,
   keepClose: Boolean
 });
 defineEmits(['close']);
@@ -20,7 +21,7 @@ defineEmits(['close']);
   <Teleport to="body">
     <Transition name="fence">
       <div v-if="open" class="fence-mask" @click.self="$emit('close')">
-        <section class="fence-box" :class="{ wide }" role="dialog" :aria-label="title">
+        <section class="fence-box" :class="{ wide, slim }" role="dialog" :aria-label="title">
           <header class="f-hat">
             <svg class="rails" viewBox="0 0 520 78" preserveAspectRatio="none" aria-hidden="true">
               <g class="fence-ink">
@@ -72,6 +73,7 @@ defineEmits(['close']);
   box-shadow: 0 18px 44px rgba(63, 58, 47, .16); overflow: hidden;
   transform: rotate(-.28deg); }
 .fence-box.wide { width: min(1180px, 94vw); }
+.fence-box.slim { width: min(560px, 94vw); }
 body[data-night="1"] .fence-box { border-color: rgba(148, 160, 176, .22);
   box-shadow: 0 18px 44px rgba(5, 9, 15, .34), 0 0 26px rgba(130, 156, 130, .05); }
 .f-hat { position: relative; flex: none; min-height: 82px; display: flex; align-items: center;
@@ -109,7 +111,7 @@ body[data-night="1"] .fence-box { border-color: rgba(148, 160, 176, .22);
 @media (max-width: 620px) {
   .fence-mask { padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
     calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left)); }
-  .fence-box, .fence-box.wide { width: 100%;
+  .fence-box, .fence-box.wide, .fence-box.slim { width: 100%;
     max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
   .f-hat { padding: 13px 42px 4px; }
   .f-body { padding: 2px 14px 16px; }
