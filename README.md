@@ -118,15 +118,15 @@ sudo bash deploy.sh
 2. 拉代码，导入空库。
 
 ```bash
-git clone <仓库地址> /srv/yimuxintian
-cd /srv/yimuxintian
+git clone <仓库地址> /srv/trip
+cd /srv/trip
 mysql -u root -p < server/sql/init.sql
 ```
 
 3. 配置后端。
 
 ```bash
-cd /srv/yimuxintian/server
+cd /srv/trip/server
 cp .env.example .env
 ```
 
@@ -141,15 +141,15 @@ FLUSH PRIVILEGES;
 4. 安装依赖并构建。
 
 ```bash
-cd /srv/yimuxintian/server && npm ci --omit=dev
-cd /srv/yimuxintian/web && npm ci && npm run build
+cd /srv/trip/server && npm ci --omit=dev
+cd /srv/trip/web && npm ci && npm run build
 ```
 
 5. 启动并保持运行。
 
 ```bash
-cd /srv/yimuxintian/server
-pm2 start app.js --name yimuxintian
+cd /srv/trip/server
+pm2 start app.js --name trip
 pm2 save
 pm2 startup
 ```
@@ -157,7 +157,7 @@ pm2 startup
 没有 pm2 时也可以先直接运行：
 
 ```bash
-cd /srv/yimuxintian/server
+cd /srv/trip/server
 npm start
 ```
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # 一亩心田一键部署脚本（Ubuntu / Debian / OpenCloudOS 9 等 RHEL 系）
-# 用法：sudo bash deploy.sh [--skip-provision] [--dir /srv/yimuxintian] [--repo 仓库地址]
+# 用法：sudo bash deploy.sh [--skip-provision] [--dir /srv/trip] [--repo 仓库地址]
 set -euo pipefail
 
 REPO_URL="https://github.com/yuewentan1-droid/trip.git"
-APP_DIR="/srv/yimuxintian"
+APP_DIR="/srv/trip"
 SKIP_PROVISION=0
-PM2_NAME="yimuxintian"
+PM2_NAME="trip"
 DEFAULT_DB_NAME="deep_thinking"
 DEFAULT_DB_USER="xintian"
 DEFAULT_PORT="3010"
