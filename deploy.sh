@@ -10,6 +10,7 @@ PM2_NAME="trip"
 DEFAULT_DB_NAME="deep_thinking"
 DEFAULT_DB_USER="xintian"
 DEFAULT_PORT="3010"
+NPM_REGISTRY="${NPM_REGISTRY:-https://registry.npmmirror.com}"
 
 log() { printf '\n\033[1;32m==> %s\033[0m\n' "$*"; }
 fail() { printf '\n\033[1;31m!! %s\033[0m\n' "$*" >&2; exit 1; }
@@ -205,15 +206,15 @@ SQL
 
 # ---------- 5. 依赖与构建 ----------
 log "安装后端依赖"
-npm --prefix "$APP_DIR/server" ci --omit=dev
+npm --prefix "$APP_DIR/server" ci --omit=dev --registry="$NPM_REGISTRY" --replace-registry-host=always
 
 log "安装前端依赖并构建"
-npm --prefix "$APP_DIR/web" ci
+npm --prefix "$APP_DIR/web" ci --registry="$NPM_REGISTRY" --replace-registry-host=always
 npm --prefix "$APP_DIR/web" run build
 
 # ---------- 6. 启动并常驻 ----------
 log "启动 / 重启服务"
-command -v pm2 >/dev/null 2>&1 || npm i -g pm2
+command -v pm2 >/dev/null 2>&1 || npm i -g pm2 --registry="$NPM_REGISTRY"
 cd "$APP_DIR/server"
 if pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
   pm2 restart "$PM2_NAME" --update-env
