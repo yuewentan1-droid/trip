@@ -73,6 +73,21 @@ npm --prefix server start
 
 以 Ubuntu 服务器、MySQL 8、直接用 3010 端口为例。
 
+### 一键部署（推荐）
+
+买好 Ubuntu 22.04/24.04 的机器，在安全组放行 3010 端口，然后登录服务器执行：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yuewentan1-droid/trip/main/deploy.sh -o deploy.sh
+sudo bash deploy.sh
+```
+
+脚本会自动完成下面手动步骤里的 1–5：装 Node.js 20、MySQL 8、PM2，建库并导入默认话题，生成带随机数据库密码和 `JWT_SECRET` 的 `.env`，构建前端并常驻启动，最后做健康检查。
+
+重跑是安全的：已有的 `.env`、数据库和 `server/uploads` 都会保留，只拉新代码、重新构建并重启。其他发行版请先自行装好 Node.js 18+、MySQL 8、Git、pm2，再加 `--skip-provision` 运行。
+
+### 手动部署
+
 1. 安装 Node.js 18+、MySQL、Git，放行安全组的 3010 端口。
 
 2. 拉代码，导入空库。
