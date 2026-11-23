@@ -281,8 +281,11 @@ async function send() {
   note.value = '';
   try {
     await api.addMessage(garden.value.id, { content });
-    page.value = 1;
-    await loadMessages();
+    if (mode.value === 'knock') toast('留给主人了');
+    else {
+      page.value = 1;
+      await loadMessages();
+    }
     draft.value = '';
     sent.value = true;
     clearTimeout(closeTimer);
@@ -358,7 +361,7 @@ onMounted(() => {
         </div>
         <nav class="g-links">
           <span v-if="mode === 'knock'" class="knock-open">
-            主人开了 {{ sessions.length }} 块地给你看
+            {{ sessions.length ? `主人开了 ${sessions.length} 块地给你看` : '主人开了门，院里还没种下什么' }}
           </span>
           <template v-if="mode === 'public' || mode === 'owner'">
             <span class="g-fence">篱笆上的话 <i v-if="total">{{ total }}</i></span>
@@ -367,7 +370,10 @@ onMounted(() => {
               :to="{ path: '/login', query: { to: route.fullPath } }">登录后留句话</router-link>
             <router-link class="fence-back" to="/visits">回串门</router-link>
           </template>
-          <router-link v-else-if="mode === 'knock'" class="g-back" to="/visits">回串门</router-link>
+          <template v-else-if="mode === 'knock'">
+            <button class="fence-write" @click="write">留句话</button>
+            <router-link class="g-back" to="/visits">回串门</router-link>
+          </template>
         </nav>
       </header>
 

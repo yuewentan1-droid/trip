@@ -222,7 +222,8 @@ async function enter(k) {
               {{ it.k.times > 1 ? `敲了 ${it.k.times} 次门` : '想进来看看' }}
               <span>{{ (it.k.created_at || '').slice(5, 16) }}</span>
             </template>
-            <template v-else-if="it.kind === 'open'"> 开了 {{ it.k.plots }} 块地给你看
+            <template v-else-if="it.kind === 'open'">
+              {{ it.k.plots ? `开了 ${it.k.plots} 块地给你看` : '开了门，还没种下什么' }}
               <span>{{ it.k.garden_name || '他的田' }}</span>
             </template>
             <template v-else-if="it.kind === 'wait'"> 的门还关着

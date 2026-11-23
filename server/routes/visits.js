@@ -165,7 +165,7 @@ r.get('/garden/:id', maybe, async (req, res) => {
 r.get('/garden/:id/session/:sid', maybe, async (req, res) => {
   const { g, mode, knock } = await inside(req);
   if (!g || !mode) return fenced(req, res, g);
-  let sql = "SELECT * FROM sessions WHERE id=? AND user_id=? AND placement <> 'held'";
+  let sql = "SELECT * FROM sessions WHERE id=? AND user_id=? AND placement NOT IN ('picked','held')";
   const args = [req.params.sid, g.id];
   if (mode === 'knock') {
     sql += ' AND id IN (SELECT session_id FROM knock_plots WHERE knock_id=?)';
@@ -204,12 +204,11 @@ r.get('/garden/:id/messages', maybe, async (req, res) => {
   ok(res, { list, total, page, limit: MSG, q });
 });
 
-// 留一句话：对同一块地一天最多三句；围起来的地要敲过门、被放进来才能看，不能留话
+// 留一句话：对同一块地一天最多三句；主人开了门，就算院里什么也没种下，也能留一句
 r.post('/garden/:id/messages', auth, async (req, res) => {
   const { g, mode } = await inside(req);
   if (!g || !mode) return fenced(req, res, g);
   if (g.id === req.uid) return err(res, '自己的地，看看就好');
-  if (mode !== 'public') return err(res, '主人开了门给你看，没说能留话');
   const content = String(req.body.content || '').trim();
   if (!content) return err(res, '总得写点什么');
   if (chars(content) > 100) return err(res, '话太长了，收一收');
@@ -390,7 +389,7 @@ r.post('/knocks/:id/decide', auth, async (req, res) => {
     return ok(res, { status: 'declined', reason });
   }
   const [sessions] = await db.query(
-    "SELECT id FROM sessions WHERE user_id=? AND placement <> 'held'", [req.uid]);
+    "SELECT id FROM sessions WHERE user_id=? AND placement NOT IN ('picked','held')", [req.uid]);
   // 上回开过的那扇门已经看过了，这一次只留最新的回音，别在头像边上攒两个点
   await db.query(
     "UPDATE knocks SET seen_by_visitor=1 WHERE garden_user_id=? AND visitor_id=? AND status='approved'",
