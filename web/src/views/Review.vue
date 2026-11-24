@@ -358,14 +358,16 @@ main { flex: 1; min-width: 0; min-height: 0; padding: 0 max(24px, 4vw) 18px max(
 @media (max-width: 720px) {
   .review { padding-left: max(60px, env(safe-area-inset-left)); }
   .review .top-nav { padding-left: 0; }
-  main { padding-right: max(14px, env(safe-area-inset-right)); }
+  main { padding-right: max(14px, env(safe-area-inset-right));
+    /* 采摘栏浮在田角，给最后一张纸留出能翻到它上面的空地 */
+    padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
   .r-head { margin: 0 max(14px, env(safe-area-inset-right)) 16px 0; padding: 14px 16px 16px; }
   .r-q { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   /* 窄屏上照片别再跟字挤一条：字留在叶签旁边，照片落到纸角 */
   .r-row { display: grid; grid-template-columns: auto minmax(0, 1fr); row-gap: 7px; padding: 8px 14px 10px 16px; }
   .r-body { grid-column: 2; }
   .r-photo { grid-column: 1 / -1; justify-self: end; margin: 0; }
-  .r-pick { left: 72px; right: 14px; bottom: calc(102px + env(safe-area-inset-bottom)); width: auto;
+  .r-pick { left: 72px; right: 14px; bottom: calc(72px + env(safe-area-inset-bottom)); width: auto;
     flex-wrap: wrap; gap: 4px 9px; padding: 9px 12px 10px 14px; }
   .r-pick > div { flex: 1 1 calc(100% - 34px); }
   .r-pick b { font-size: calc(17px * var(--ui-scale)); }

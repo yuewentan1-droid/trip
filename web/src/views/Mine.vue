@@ -62,6 +62,13 @@ const PER = CYCLE.reduce((a, b) => a + b, 0);
 const page = ref(1);
 const q = ref('');
 const mineBody = ref(null);
+// 手机上整页跟着手指走，翻页后回到这一页的头一张，别停在上一页的田尾
+async function turnPage(n) {
+  page.value = n;
+  await nextTick();
+  if (mineBody.value && getComputedStyle(mineBody.value.closest('.mine')).overflowY === 'auto')
+    mineBody.value.scrollIntoView({ block: 'start' });
+}
 // 四道田垄：自己种的、看完了采回来的、三处满了暂放在田埂上的、别人院里夹进书里的
 const tab = ref(['picked', 'held', 'kept'].includes(route.query.tab) ? route.query.tab : 'plots');
 const TABS = [
@@ -318,7 +325,7 @@ async function del(s) {
 
     <!-- 跟回看那块地站在同一个高度：底下垫一条麦田，别贴着窗口边 -->
     <footer v-if="field.ready && pages > 1" class="foot">
-      <FieldPager :page="page" :pages="pages" big @go="page = $event"/>
+      <FieldPager :page="page" :pages="pages" big @go="turnPage"/>
     </footer>
 
     <WheatField class="wheat" :n="12"/>
@@ -449,6 +456,11 @@ h3 { margin: 4px 0 0; font-size: var(--fs-read); font-weight: normal; }
 }
 /* 再窄就一张纸一垅，标题和徽记不必挤在一行里 */
 @media (max-width: 620px) {
+  /* 手机屏幕短，题头、田垄、翻页和麦子一起顺着手指走，
+     别把中间那块地挤成一条缝 */
+  .mine { overflow-y: auto; overscroll-behavior: contain; }
+  .mine-roll { flex: none; }
+  .mine-roll main { flex: none; overflow: visible; }
   .rank { flex-direction: column; gap: 18px; }
   .s-card { flex: 1 1 auto; width: 100%; }
   .s-foot { flex-wrap: wrap; white-space: normal; }

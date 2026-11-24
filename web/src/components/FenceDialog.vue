@@ -45,7 +45,7 @@ defineEmits(['close']);
               <h3>{{ title }}</h3>
               <p v-if="note">{{ note }}</p>
             </div>
-            <button v-if="keepClose" class="f-close" title="合上" @click="$emit('close')"><Glyph name="close" :size="14"/></button>
+            <button class="f-close" :class="{ 'f-close-m': !keepClose }" title="合上" @click="$emit('close')"><Glyph name="close" :size="14"/></button>
           </header>
           <div class="f-body-wrap">
             <div ref="fBody" class="f-body roll"><slot/></div>
@@ -96,6 +96,7 @@ body[data-night="1"] .fence-box { border-color: rgba(148, 160, 176, .22);
 .f-title p { margin-top: 1px; font-size: var(--fs-sm); letter-spacing: .08em; color: var(--ink-faint); }
 .f-close { position: absolute; right: 15px; top: 13px; color: var(--ink-faint); line-height: 0; padding: 5px; }
 .f-close:hover { color: var(--wood); }
+.f-close-m { display: none; }
 .f-body-wrap { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .f-body { flex: 1; min-height: 0; padding: 2px 30px 22px 24px; overflow-y: auto; scrollbar-width: none; }
 .f-body::-webkit-scrollbar { display: none; }
@@ -112,6 +113,8 @@ body[data-night="1"] .fence-box { border-color: rgba(148, 160, 176, .22);
   .fence-box, .fence-box.wide { width: 100%;
     max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
   .f-hat { padding: 13px 42px 4px; }
+  .f-close { right: 8px; top: 6px; padding: 9px; }
+  .f-close-m { display: block; }
   .f-body { padding: 2px 14px 16px; }
   .v2 { left: 14%; }
 }

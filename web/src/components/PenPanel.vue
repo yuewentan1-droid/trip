@@ -14,6 +14,7 @@ const emit = defineEmits(['close']);
     <div class="modal pen-modal" :class="{ wide }">
       <ModalSprig/>
       <i class="a-edge"/>
+      <button class="pen-close" title="合上" @click="emit('close')"><Glyph name="close" :size="15"/></button>
       <h3><Glyph name="pen" :size="21"/> 挑一支笔</h3>
       <div class="pen-line">
         <div v-for="(list, g) in PENS" :key="g" class="pen-group">
@@ -42,6 +43,9 @@ const emit = defineEmits(['close']);
 .a-edge { position: absolute; inset: 1px; border: 1.5px dashed rgba(150, 133, 100, .55);
   border-radius: inherit; pointer-events: none; filter: url(#ink-blot); }
 .pen-modal h3 { display: flex; align-items: center; gap: 9px; font-size: var(--fs-read); font-weight: normal; margin-bottom: 14px; }
+.pen-close { display: none; position: absolute; right: 7px; top: 5px; z-index: 3;
+  padding: 9px; color: var(--ink-faint); line-height: 0; }
+.pen-close:hover { color: var(--wood); }
 .pen-group label { display: block; font-size: var(--fs-md); color: var(--ink-soft); margin-bottom: 7px; }
 .pen-row { display: flex; flex-wrap: nowrap; gap: 6px; }
 .pen-row button {
@@ -60,11 +64,13 @@ const emit = defineEmits(['close']);
 .pen-row button.on span { color: var(--grass-deep); }
 @media (max-width: 640px) {
   .pen-modal, .pen-modal.wide { width: 100%; padding: 19px 14px 15px; }
-  .pen-line { gap: 10px; overflow-x: auto; scrollbar-width: none; }
-  .pen-line::-webkit-scrollbar { display: none; }
-  .pen-group { flex: 0 0 306px; }
-  .pen-group + .pen-group { padding-left: 10px; }
-  .pen-row { gap: 4px; }
-  .pen-row button { padding: 5px 2px 6px; }
+  .pen-close { display: block; }
+  .pen-line { flex-direction: column; align-items: stretch; gap: 12px; }
+  .pen-group { flex: 0 0 auto; width: 100%; }
+  .pen-group + .pen-group { padding-left: 0; padding-top: 10px;
+    border-left: 0; border-top: 1.1px dashed rgba(150, 133, 100, .4); }
+  .pen-row { flex-wrap: wrap; justify-content: center; gap: 5px; }
+  .pen-row button { flex: 0 1 calc(33.333% - 4px); padding: 5px 2px 6px; }
+  .pen-row button span { white-space: normal; line-height: 1.25; }
 }
 </style>
