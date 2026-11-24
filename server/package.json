@@ -5,6 +5,7 @@
     "start": "node app.js",
     "seed": "node seed.js",
     "test": "node --test test/privacy.test.js test/deploy.test.js",
+    "test:p0": "node --test test/privacy.test.js test/deploy.test.js",
     "test:privacy": "node --test test/privacy.test.js"
   },
   "dependencies": {

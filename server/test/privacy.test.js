@@ -82,6 +82,11 @@ async function wallHas(token, q) {
   return d.list.length;
 }
 
+async function wallTotal(token) {
+  const d = okay(await api('GET', '/messages/wall?limit=400', { token }));
+  return d.total;
+}
+
 async function gardenHas(token, id, q) {
   const d = okay(await api('GET', `/garden/${id}/messages?q=${encodeURIComponent(q)}`, { token }));
   return d.total;
@@ -110,6 +115,8 @@ before(async () => {
   const [official] = await conn.query("SELECT id FROM users WHERE username='官方'");
   uid.official = official[0].id;
   tok.official = jwt.sign({ id: uid.official, username: '官方' }, SECRET);
+  const [feng] = await conn.query("SELECT id FROM users WHERE username='风过篱笆'");
+  uid.feng = feng[0].id;
 
   msg.public = await addMsg(uid.t_alice, uid.t_bob, 'PUBLIC_OPEN 公开的一句话');
   msg.publicOld = await addMsg(uid.t_alice, uid.t_bob, 'PUBLIC_OLD 昨天公开的话',
@@ -121,10 +128,17 @@ before(async () => {
   msg.privateGarden = await addMsg(uid.t_alice, uid.t_bob, 'PRIVATE_GARDEN 围起来的话');
   msg.quiet = await addMsg(uid.t_quiet, uid.t_bob, 'QUIET_TALK 静院的话');
   msg.feedback = await addMsg(uid.official, uid.t_bob, 'OFFICIAL_SAY 意见墙的话');
+  msg.feedbackOld = await addMsg(uid.official, uid.t_bob, 'OFFICIAL_OLD 昨天的意见',
+    'DATE_SUB(NOW(), INTERVAL 1 DAY)');
+  msg.feedbackCarol = await addMsg(uid.official, uid.t_carol, 'OFFICIAL_CAROL 另一句意见');
   msg.publicFinal = await addMsg(uid.t_open, uid.t_bob, 'PUBLIC_FINAL 一直敞着的话');
+  msg.otherOfficial = await addMsg(uid.feng, uid.t_bob, 'OTHER_FIELD 另一块官方田的话');
   await conn.query(
     'INSERT INTO message_replies (message_id,user_id,content) VALUES (?,?,?)',
     [msg.fenceBob, uid.t_alice, 'REPLY_PRIVATE 回在私话下面']);
+  await conn.query(
+    'INSERT INTO message_replies (message_id,user_id,content) VALUES (?,?,?)',
+    [msg.feedback, uid.official, 'OFFICIAL_REPLY 官方回在意见下面']);
 
   // 一块有明有暗的地、一块只剩暗的地；门里那块要单独开
   ses.visible = await addSession(uid.t_alice, '半明半暗');
@@ -172,42 +186,46 @@ after(async () => {
 });
 
 test('P0 用户权限与隐私', async t => {
-  await t.test('敞着的篱笆：路过的人、登录的人、官方风墙都看得见', async () => {
-    assert.equal(await wallHas(null, 'PUBLIC_OPEN'), 1);
-    assert.equal(await wallHas(tok.t_carol, 'PUBLIC_OPEN'), 1);
-    assert.equal(await wallHas(tok.official, 'PUBLIC_OPEN'), 1);
+  await t.test('官方风墙只收写给官方的话，谁都看得见', async () => {
+    assert.equal(await wallHas(null, 'OFFICIAL_SAY'), 1);
+    assert.equal(await wallHas(tok.t_carol, 'OFFICIAL_SAY'), 1);
+    assert.equal(await wallHas(tok.official, 'OFFICIAL_SAY'), 1);
+    assert.equal(await wallHas(null, 'OFFICIAL_OLD'), 1, '意见墙留得住旧话');
+    assert.equal(await wallHas(null, 'OFFICIAL_CAROL'), 1, '谁写的都收');
+    assert.equal(await wallTotal(null), 3);
+    assert.equal(await wallHas(null, 't_bob'), 2, '按留言人找得到写给官方的话');
+    assert.equal(await wallHas(null, 'OFFICIAL_REPLY'), 1, '官方回在下面的话也找得到');
+    assert.equal(await wallHas(null, 'alice的院'), 0, '别家的院名不会带出话');
+    assert.equal(await wallHas(null, 'PUBLIC_OPEN'), 0, '别人家的话不上官方墙');
+    assert.equal(await wallHas(null, 'PUBLIC_FINAL'), 0);
+    assert.equal(await wallHas(null, 'OTHER_FIELD'), 0, '另外四块官方田也不并进来');
+
     assert.equal(await gardenHas(null, uid.t_alice, 'PUBLIC_OPEN'), 1);
     assert.equal(await gardenHas(null, uid.t_alice, 'PUBLIC_OLD'), 0, '院子里只挂今天的话');
-    assert.equal(await wallHas(null, 'PUBLIC_OLD'), 1, '风墙收着公开过的旧话');
-    assert.equal(await wallHas(null, 'QUIET_TALK'), 0, '收起的篱笆不在风里');
-    assert.equal(await wallHas(null, 'OFFICIAL_SAY'), 1, '意见墙是敞着的');
+    assert.equal(await gardenHas(tok.t_alice, uid.t_alice, 'PUBLIC_OLD'), 1, '主人翻得到旧话');
+    assert.equal(await gardenHas(null, uid.t_quiet, 'QUIET_TALK'), 0, '收起的篱笆不在院里');
+    assert.equal(await gardenHas(tok.t_quiet, uid.t_quiet, 'QUIET_TALK'), 1);
+    assert.equal(await gardenHas(null, uid.feng, 'OTHER_FIELD'), 1, '官方田自己的篱笆照常');
   });
 
-  await t.test('收起的篱笆：风墙只给主人和留过话的人看', async () => {
+  await t.test('收起的篱笆：院子里只给主人和留过话的人看', async () => {
     okay(await api('PUT', '/auth/me', { token: tok.t_alice, body: { fence_private: 1 } }));
-    assert.equal(await wallHas(null, 'PUBLIC_OPEN'), 0, '收起篱笆后，旧话也不再给路过的人看');
-    assert.equal(await wallHas(tok.t_bob, 'PUBLIC_OPEN'), 1, '留话的人还看得见自己那句');
-    assert.equal(await wallHas(tok.t_alice, 'PUBLIC_OPEN'), 1, '主人看得见自家篱笆');
-    assert.equal(await wallHas(tok.t_carol, 'PUBLIC_OPEN'), 0, '没留过话的人看不见');
-    assert.equal(await wallHas(tok.official, 'PUBLIC_OPEN'), 0, '官方账号也不收私话');
-
-    assert.equal(await wallHas(null, 'FENCE_BOB'), 0);
-    assert.equal(await wallHas(tok.t_bob, 'FENCE_BOB'), 1);
-    assert.equal(await wallHas(tok.t_alice, 'FENCE_BOB'), 1);
-    assert.equal(await wallHas(tok.t_carol, 'FENCE_BOB'), 0);
-    assert.equal(await wallHas(tok.t_carol, 'FENCE_CAROL'), 1);
-    assert.equal(await wallHas(tok.t_bob, 'FENCE_CAROL'), 0);
-    assert.equal(await wallHas(tok.t_alice, 'FENCE_CAROL'), 1);
-    assert.equal(await wallHas(null, 'FENCE_OLD'), 0);
-    assert.equal(await wallHas(tok.t_bob, 'FENCE_OLD'), 1);
-    assert.equal(await wallHas(tok.t_alice, 'FENCE_OLD'), 1);
+    assert.equal(await gardenHas(null, uid.t_alice, 'PUBLIC_OPEN'), 0, '收起篱笆后，旧话也不再给路过的人看');
+    assert.equal(await gardenHas(tok.t_bob, uid.t_alice, 'PUBLIC_OPEN'), 1, '留话的人还看得见自己那句');
+    assert.equal(await gardenHas(tok.t_alice, uid.t_alice, 'PUBLIC_OPEN'), 1, '主人看得见自家篱笆');
+    assert.equal(await gardenHas(tok.t_carol, uid.t_alice, 'PUBLIC_OPEN'), 0, '没留过话的人看不见');
+    assert.equal(await gardenHas(tok.official, uid.t_alice, 'PUBLIC_OPEN'), 0, '官方账号也不收私话');
 
     assert.equal(await gardenHas(null, uid.t_alice, 'FENCE_BOB'), 0);
     assert.equal(await gardenHas(tok.t_bob, uid.t_alice, 'FENCE_BOB'), 1);
-    assert.equal(await gardenHas(tok.t_carol, uid.t_alice, 'FENCE_BOB'), 0);
     assert.equal(await gardenHas(tok.t_alice, uid.t_alice, 'FENCE_BOB'), 1);
+    assert.equal(await gardenHas(tok.t_carol, uid.t_alice, 'FENCE_BOB'), 0);
+    assert.equal(await gardenHas(tok.t_carol, uid.t_alice, 'FENCE_CAROL'), 1);
+    assert.equal(await gardenHas(tok.t_bob, uid.t_alice, 'FENCE_CAROL'), 0);
+    assert.equal(await gardenHas(tok.t_alice, uid.t_alice, 'FENCE_CAROL'), 1);
+    assert.equal(await gardenHas(null, uid.t_alice, 'FENCE_OLD'), 0);
     assert.equal(await gardenHas(tok.t_bob, uid.t_alice, 'FENCE_OLD'), 0, '留话的人也只看今天');
-    assert.equal(await gardenHas(tok.t_alice, uid.t_alice, 'FENCE_OLD'), 1, '主人翻得到旧话');
+    assert.equal(await gardenHas(tok.t_alice, uid.t_alice, 'FENCE_OLD'), 1);
 
     assert.notEqual((await api('PUT', `/messages/${msg.fenceBob}/reply`,
       { token: tok.t_carol, body: { reply: '不该我回' } })).code, 0);
@@ -215,11 +233,12 @@ test('P0 用户权限与隐私', async t => {
       { token: tok.t_bob, body: { reply: 'REPLY_BOB 我回自己' } }));
     okay(await api('PUT', `/messages/${msg.fenceBob}/reply`,
       { token: tok.t_alice, body: { reply: 'REPLY_OWNER 主人回' } }));
-    assert.equal(await wallHas(tok.t_bob, 'REPLY_PRIVATE'), 1);
-    assert.equal(await wallHas(tok.t_alice, 'REPLY_PRIVATE'), 1);
-    assert.equal(await wallHas(tok.t_carol, 'REPLY_PRIVATE'), 0);
-    assert.equal(await wallHas(null, 'REPLY_PRIVATE'), 0);
-    assert.equal(await wallHas(tok.official, 'REPLY_PRIVATE'), 0);
+    assert.equal(await gardenHas(tok.t_bob, uid.t_alice, 'REPLY_PRIVATE'), 1);
+    assert.equal(await gardenHas(tok.t_alice, uid.t_alice, 'REPLY_PRIVATE'), 1);
+    assert.equal(await gardenHas(tok.t_carol, uid.t_alice, 'REPLY_PRIVATE'), 0);
+    assert.equal(await gardenHas(null, uid.t_alice, 'REPLY_PRIVATE'), 0);
+    assert.equal(await gardenHas(tok.official, uid.t_alice, 'REPLY_PRIVATE'), 0);
+    assert.equal(await wallHas(null, 'REPLY_PRIVATE'), 0, '官方墙不夹带别人院里的回音');
 
     const inbox = okay(await api('GET', '/messages/inbox', { token: tok.t_alice }));
     assert.ok(inbox.list.some(m => m.id === msg.fenceBob));
@@ -239,11 +258,15 @@ test('P0 用户权限与隐私', async t => {
     assert.equal((await api('GET', `/garden/${uid.t_alice}/messages`,
       { token: tok.t_carol })).code, 403);
     assert.equal(await wallHas(null, 'PRIVATE_GARDEN'), 0);
-    assert.equal(await wallHas(tok.t_bob, 'PRIVATE_GARDEN'), 1, '留话的人还看得见自己那句');
-    assert.equal(await wallHas(tok.t_alice, 'PRIVATE_GARDEN'), 1);
+    assert.equal(await wallHas(tok.t_bob, 'PRIVATE_GARDEN'), 0, '官方墙不接别人院里的私话');
+    assert.equal(await wallHas(tok.t_alice, 'PRIVATE_GARDEN'), 0);
     assert.equal(await wallHas(tok.t_carol, 'PRIVATE_GARDEN'), 0);
     assert.equal(await wallHas(tok.official, 'PRIVATE_GARDEN'), 0);
     assert.equal(await gardenHas(tok.t_alice, uid.t_alice, 'PRIVATE_GARDEN'), 1);
+    const bobOut = okay(await api('GET', '/messages/outbox', { token: tok.t_bob }));
+    assert.ok(bobOut.list.some(m => m.id === msg.privateGarden), '留话的人在自己的回音里还看得见');
+    const aliceIn = okay(await api('GET', '/messages/inbox', { token: tok.t_alice }));
+    assert.ok(aliceIn.list.some(m => m.id === msg.privateGarden), '主人收得到');
     assert.notEqual((await api('POST', `/garden/${uid.t_alice}/messages`,
       { token: tok.t_carol, body: { content: 'NOPE 不该进的门' } })).code, 0);
     assert.notEqual((await api('POST', `/garden/${uid.t_alice}/messages`,
@@ -286,7 +309,7 @@ test('P0 用户权限与隐私', async t => {
     assert.equal(await gardenHas(tok.t_alice, uid.t_alice, 'FENCE_BOB'), 1);
     assert.equal((await api('GET', `/garden/${uid.t_alice}/messages`,
       { token: tok.t_carol })).code, 403);
-    assert.equal(await wallHas(tok.t_bob, 'FENCE_BOB'), 1);
+    assert.equal(await wallHas(tok.t_bob, 'FENCE_BOB'), 0, '官方墙只收给官方的话');
     assert.equal(await wallHas(tok.t_carol, 'FENCE_BOB'), 0);
     assert.equal(await wallHas(tok.official, 'FENCE_BOB'), 0);
 
@@ -352,42 +375,43 @@ test('P0 用户权限与隐私', async t => {
     assert.ok(alice.message_count > 0, '敞着的院子照常报数');
   });
 
-  await t.test('风里不夹带私话：设置一收，风墙立刻收口', async () => {
+  await t.test('官方风墙只露官方的话，篱笆怎么收都不夹带', async () => {
     okay(await api('PUT', '/auth/me', { token: tok.t_alice, body: { fence_private: 1 } }));
-    assert.equal(await wallHas(null, 'PUBLIC_OPEN'), 0);
-    assert.equal(await wallHas(tok.t_bob, 'PUBLIC_OPEN'), 1);
-    assert.equal(await wallHas(tok.t_alice, 'PUBLIC_OPEN'), 1);
-    assert.equal(await wallHas(tok.t_carol, 'PUBLIC_OPEN'), 0);
-    assert.equal(await wallHas(tok.official, 'PUBLIC_OPEN'), 0);
 
-    assert.equal(await wallHas(null, 'FENCE_BOB'), 0);
-    assert.equal(await wallHas(tok.t_bob, 'FENCE_BOB'), 1);
-    assert.equal(await wallHas(tok.t_carol, 'FENCE_BOB'), 0);
-    assert.equal(await wallHas(tok.t_carol, 'FENCE_CAROL'), 1);
-    assert.equal(await wallHas(tok.t_bob, 'FENCE_CAROL'), 0);
-    assert.equal(await wallHas(tok.t_alice, 'FENCE_CAROL'), 1);
-    assert.equal(await wallHas(tok.t_bob, 'REPLY_PRIVATE'), 1);
-    assert.equal(await wallHas(tok.t_alice, 'REPLY_PRIVATE'), 1);
-    assert.equal(await wallHas(tok.t_carol, 'REPLY_PRIVATE'), 0);
-    assert.equal(await wallHas(tok.official, 'REPLY_PRIVATE'), 0);
+    // 别家的公开话、私话、回音，都不该出现在官方墙上
+    for (const who of [null, tok.t_bob, tok.t_alice, tok.t_carol, tok.official]) {
+      assert.equal(await wallHas(who, 'PUBLIC_OPEN'), 0);
+      assert.equal(await wallHas(who, 'FENCE_BOB'), 0);
+      assert.equal(await wallHas(who, 'FENCE_CAROL'), 0);
+      assert.equal(await wallHas(who, 'REPLY_PRIVATE'), 0);
+      assert.equal(await wallHas(who, 'QUIET_TALK'), 0);
+      assert.equal(await wallHas(who, 'PUBLIC_FINAL'), 0);
+    }
+    for (const who of [null, tok.t_carol, tok.official])
+      assert.equal(await wallHas(who, 'OFFICIAL_SAY'), 1, '给官方的话谁都看得见');
 
-    assert.equal(await wallHas(tok.t_bob, 'QUIET_TALK'), 1);
-    assert.equal(await wallHas(tok.t_quiet, 'QUIET_TALK'), 1);
-    assert.equal(await wallHas(null, 'QUIET_TALK'), 0);
-    assert.equal(await wallHas(tok.t_alice, 'QUIET_TALK'), 0);
-    assert.equal(await wallHas(tok.official, 'QUIET_TALK'), 0);
+    // 院子自己的门禁仍然照旧
+    assert.equal(await gardenHas(null, uid.t_alice, 'PUBLIC_OPEN'), 0);
+    assert.equal(await gardenHas(tok.t_bob, uid.t_alice, 'PUBLIC_OPEN'), 1);
+    assert.equal(await gardenHas(tok.t_alice, uid.t_alice, 'PUBLIC_OPEN'), 1);
+    assert.equal(await gardenHas(tok.t_carol, uid.t_alice, 'PUBLIC_OPEN'), 0);
+    assert.equal(await gardenHas(tok.official, uid.t_alice, 'PUBLIC_OPEN'), 0);
 
-    assert.equal(await wallHas(null, 'PUBLIC_FINAL'), 1);
-    assert.equal(await wallHas(tok.t_carol, 'PUBLIC_FINAL'), 1);
-    assert.equal(await wallHas(tok.official, 'PUBLIC_FINAL'), 1);
-    assert.equal(await wallHas(null, 'OFFICIAL_SAY'), 1);
-    assert.equal(await wallHas(tok.official, 'OFFICIAL_SAY'), 1);
+    assert.equal(await gardenHas(tok.t_bob, uid.t_quiet, 'QUIET_TALK'), 1);
+    assert.equal(await gardenHas(tok.t_quiet, uid.t_quiet, 'QUIET_TALK'), 1);
+    assert.equal(await gardenHas(null, uid.t_quiet, 'QUIET_TALK'), 0);
+    assert.equal(await gardenHas(tok.t_alice, uid.t_quiet, 'QUIET_TALK'), 0);
+    assert.equal(await gardenHas(tok.official, uid.t_quiet, 'QUIET_TALK'), 0);
+
+    assert.equal(await gardenHas(null, uid.t_open, 'PUBLIC_FINAL'), 1);
+    assert.equal(await gardenHas(tok.t_carol, uid.t_open, 'PUBLIC_FINAL'), 1);
+    assert.equal(await gardenHas(tok.official, uid.t_open, 'PUBLIC_FINAL'), 1);
 
     const privateTokens = ['PUBLIC_OPEN', 'FENCE_BOB', 'FENCE_CAROL', 'REPLY_PRIVATE',
-      'QUIET_TALK', 'PRIVATE_GARDEN', 'HIDDEN_THOUGHT', 'ONLY_HIDDEN'];
+      'QUIET_TALK', 'PRIVATE_GARDEN', 'OTHER_FIELD', 'PUBLIC_FINAL', 'HIDDEN_THOUGHT', 'ONLY_HIDDEN'];
     for (const who of [null, tok.official]) {
       const all = okay(await api('GET', '/messages/wall?limit=400', { token: who }));
-      assert.equal(all.total, 2, '风里只剩两句敞着的话');
+      assert.equal(all.total, 3, '风里只留写给官方的三句');
       const text = JSON.stringify(all);
       for (const token of privateTokens)
         assert.ok(!text.includes(token), `风里不该夹带 ${token}`);

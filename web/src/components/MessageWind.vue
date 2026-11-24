@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import Glyph from './Glyph.vue';
 
-// 官方那块田不种树：各家的留言都交给风，一屏最多挂四百句
+// 官方那块田不种树：大家写给官方的话都交给风，一屏最多挂四百句
 const props = defineProps({
   notes: { type: Array, default: () => [] },
   total: { type: Number, default: 0 }

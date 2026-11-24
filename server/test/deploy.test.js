@@ -56,6 +56,15 @@ test('部署先过 P0 用户权限与隐私用例，再构建上线', () => {
     '用例不通过就不能构建上线');
 });
 
+test('提交前也跑 P0，不过就拦下', () => {
+  const hook = read('.githooks/pre-commit');
+  assert.match(hook, /npm run test:p0/);
+  assert.match(hook, /exit 1/);
+  const pkg = JSON.parse(read('server/package.json'));
+  assert.match(pkg.scripts['test:p0'], /privacy\.test\.js/);
+  assert.match(pkg.scripts['test:p0'], /deploy\.test\.js/);
+});
+
 test('官方账号补不齐就停下，先打印占名的行', () => {
   const sh = read('deploy.sh');
   assert.doesNotMatch(sh, /提醒：官方账号还缺/);

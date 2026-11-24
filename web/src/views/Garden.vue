@@ -38,7 +38,7 @@ const knockReason = ref('');
 const knocking = ref(false);
 const ready = ref(false);
 const mine = computed(() => garden.value && garden.value.id === user.user?.id);
-// 官方那块田不摆树：各家的留言都交给风，一屏最多四百句
+// 官方那块田不摆树：大家写给官方的话都交给风，一屏最多四百句
 const official = computed(() => !!garden.value?.official);
 const wall = ref([]);
 const wallTotal = ref(0);
@@ -407,7 +407,7 @@ onMounted(() => {
               :d="`M${4 + i * 3} ${i * 7} C 26 ${i * 7 - 3}, 48 ${i * 7 + 3}, 70 ${i * 7 - 1} C 82 ${i * 7 - 2}, 90 ${i * 7 + 1}, 96 ${i * 7}`"/>
           </svg>
           <template v-if="official">
-            <!-- 官方不种自己的东西：全站的话都交给风 -->
+            <!-- 官方不种自己的东西：大家写给官方的话都交给风 -->
             <MessageWind :notes="wall" :total="wallTotal" @open="openWall" @all="router.push('/messages')"/>
             <GroundWind :sessions="sessions"/>
           </template>

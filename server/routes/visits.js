@@ -310,22 +310,22 @@ r.delete('/messages/:id', auth, async (req, res) => {
   ok(res);
 });
 
-// 官方那面风墙：各块地篱笆上的话都收在这儿，最多四百句
+// 官方那面风墙：只收大家写给「官方」的话，最多四百句；路过的人也看得见
 r.get('/messages/wall', maybe, async (req, res) => {
+  const [[wall]] = await db.query('SELECT id FROM users WHERE username=?', [WALL]);
+  if (!wall) return err(res, '意见墙还没搭好，过会儿再来');
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(WALL_MAX, Math.max(1, Number(req.query.limit) || MSG));
   const offset = (page - 1) * limit;
   const q = String(req.query.q || '').trim().slice(0, 40);
-  // 风墙也守篱笆的规矩：敞着的话谁都能看；收起的，只给主人和留过话的人
-  let where = `((g.visibility='public' AND g.fence_private=0) OR g.id=? OR m.from_user_id=?)`;
-  const args = [req.uid || 0, req.uid || 0];
+  let where = 'm.garden_user_id=?';
+  const args = [wall.id];
   if (q) {
     const like = likeArg(q);
     where += ` AND (m.content LIKE ? ESCAPE '!' OR u.nickname LIKE ? ESCAPE '!'
-      OR g.garden_name LIKE ? ESCAPE '!'
       OR EXISTS (SELECT 1 FROM message_replies r WHERE r.message_id=m.id
         AND r.content LIKE ? ESCAPE '!'))`;
-    args.push(like, like, like, like);
+    args.push(like, like, like);
   }
   const [list] = await db.query(
     `SELECT m.id, m.from_user_id, m.content, m.created_at, u.nickname,

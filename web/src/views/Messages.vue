@@ -55,11 +55,11 @@ onBeforeUnmount(() => {
     <header class="w-head">
       <div class="w-inner">
         <h1>留言</h1>
-        <p class="w-sub">—— 各家篱笆上的话，都摊在这里</p>
+        <p class="w-sub">—— 大家写给官方的话，都摊在这里</p>
         <div class="w-tools">
           <label class="w-find">
             <Glyph name="search" :size="16"/>
-            <input v-model="q" maxlength="40" placeholder="找一句话、一个人、一块地"
+            <input v-model="q" maxlength="40" placeholder="找一句话、一个人"
               aria-label="搜留言" @input="search"/>
             <i v-if="q">{{ total }} 句</i>
             <button v-if="q" type="button" @click="clearSearch">收</button>
