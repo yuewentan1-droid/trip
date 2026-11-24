@@ -605,6 +605,8 @@ onMounted(() => {
 /* 麦秆站在最前头，树根、风和地上的记号都压不住它 */
 .g-wheat { position: absolute; left: 0; right: 0; bottom: 0; height: 92px; opacity: .85;
   z-index: 21; pointer-events: none; }
+/* 官方田底那张「摊开着全部」也不许压住麦腰，麦子照旧站在院子的最前头 */
+.g-main-official .g-wheat { z-index: 31; }
 
 /* ——— 右墙：一段老篱笆，藤顺着话往下垂，翻多少话藤就多长 ——— */
 /* 篱笆直接立在院子的纸上，不另铺一块底，跟原野是同一张纸 */

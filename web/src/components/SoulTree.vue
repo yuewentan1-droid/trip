@@ -773,7 +773,7 @@ const off = () => (hot.value = null);
 
     <Transition name="hang">
       <PlotSign v-if="hot" class="hang-sign" :text="peek ? (hot.s.peek || hot.s.title) : hot.s.title"
-        :wrap="peek" :style="{ left: hot.x / 3 + '%', top: hot.y / 4.2 + '%' }"/>
+        :style="{ left: hot.x / 3 + '%', top: hot.y / 4.2 + '%' }"/>
     </Transition>
   </div>
 </template>

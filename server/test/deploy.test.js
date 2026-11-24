@@ -56,6 +56,15 @@ test('部署先过 P0 用户权限与隐私用例，再构建上线', () => {
     '用例不通过就不能构建上线');
 });
 
+test('部署和升级脚本不删线上数据', () => {
+  const sh = read('deploy.sh');
+  for (const bad of [/\bDELETE\s+FROM\b/i, /\bDROP\s+(?:DATABASE|TABLE)\b/i, /\bTRUNCATE\b/i])
+    assert.doesNotMatch(sh, bad);
+  const up = read('server/sql/upgrade.sql');
+  assert.doesNotMatch(up, /\bDELETE\s+FROM\b/i);
+  assert.doesNotMatch(up, /\bTRUNCATE\b/i);
+});
+
 test('提交前也跑 P0，不过就拦下', () => {
   const hook = read('.githooks/pre-commit');
   assert.match(hook, /npm run test:p0/);

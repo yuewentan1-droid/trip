@@ -1,7 +1,7 @@
 const r = require('express').Router();
 const db = require('../db');
 const { auth, maybe } = require('../auth');
-const { WALL } = require('../official');
+const { WALL, OFFICIALS } = require('../official');
 const { ok, err } = require('../util');
 
 const titleOf = u => u.garden_name || `${u.nickname || '某个人'}的地`;
@@ -93,8 +93,10 @@ r.get('/visits', maybe, async (req, res) => {
   const q = String(req.query.q || '').trim().slice(0, 20);
   // 名册只认对路过的人敞开的话：收起的篱笆和围起的院子不在这里露动静
   const openTalk = "EXISTS (SELECT 1 FROM messages m WHERE m.garden_user_id=u.id AND u.visibility='public' AND u.fence_private=0)";
-  let where = recent ? openTalk : '1=1';
-  const args = [];
+  // 五块官方的田不管怎么排、翻到哪一栏，都先站到名册最前头
+  const officialSlots = OFFICIALS.map(() => '?').join(',');
+  let where = recent ? `(${openTalk} OR u.username IN (${officialSlots}))` : '1=1';
+  const args = recent ? [...OFFICIALS] : [];
   if (q) {
     where += " AND (u.nickname LIKE ? ESCAPE '!' OR u.garden_name LIKE ? ESCAPE '!' OR u.bio LIKE ? ESCAPE '!')";
     const like = likeArg(q);
@@ -105,6 +107,7 @@ r.get('/visits', maybe, async (req, res) => {
     : recent
       ? 'last_message_at DESC, u.views DESC, u.id DESC'
       : 'u.views DESC, message_count DESC, COALESCE(u.published_at, u.created_at) DESC, u.id DESC';
+  const pinFirst = `FIELD(u.username, ${officialSlots}) > 0 DESC`;
 
   const [list] = await db.query(
     `SELECT u.id, u.nickname, u.garden_name, u.bio, u.visibility, u.published_at,
@@ -127,7 +130,7 @@ r.get('/visits', maybe, async (req, res) => {
            AND EXISTS (SELECT 1 FROM thoughts t WHERE t.session_id=s.id AND t.visible=1)
          ORDER BY s.id DESC LIMIT 1) AS latest_question
      FROM users u WHERE ${where}
-     ORDER BY ${order} LIMIT ? OFFSET ?`, [...args, PAGE, offset]);
+     ORDER BY ${pinFirst}, ${order} LIMIT ? OFFSET ?`, [...args, ...OFFICIALS, PAGE, offset]);
   const [[{ total }]] = await db.query(
     `SELECT CAST(COUNT(*) AS SIGNED) AS total FROM users u WHERE ${where}`, args);
 

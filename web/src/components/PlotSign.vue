@@ -1,13 +1,12 @@
 <script setup>
 defineProps({
   text: { type: String, default: '' },
-  align: { type: String, default: 'center' },
-  wrap: Boolean
+  align: { type: String, default: 'center' }
 });
 </script>
 
 <template>
-  <span class="plot-sign" :class="[align, { 'many-lines': wrap }]" aria-hidden="true">
+  <span class="plot-sign" :class="align" aria-hidden="true">
     <i class="rail"/>
     <i class="cord"/>
     <b class="board">{{ text }}</b>
@@ -15,7 +14,7 @@ defineProps({
 </template>
 
 <style scoped>
-/* 一块挂在矮篱上的木牌：横着长，话多长牌子就多宽 */
+/* 一块挂在矮篱上的木牌：先横着长，长到一行十三个字就折到第二行 */
 .plot-sign { position: absolute; z-index: 30; display: block; pointer-events: none; }
 .plot-sign.center { left: 50%; transform: translateX(-50%); }
 .plot-sign.left { left: 0; }
@@ -34,14 +33,15 @@ defineProps({
 .cord::before { left: 2px; transform: rotate(11deg); }
 .cord::after { right: 2px; transform: rotate(-11deg); }
 
-.board { position: relative; display: inline-block; max-width: min(300px, 68vw); overflow: hidden;
+/* 一行只放十三个字：话再长也排成两行，后头收成省略号，牌子不横穿整片田 */
+.board { position: relative; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  width: max-content; max-width: min(calc(13.6em + 26px), 68vw); overflow: hidden;
   padding: 3px 13px 5px; color: #FBF7EE; background: #8B6B4A; transform: rotate(-1.4deg);
-  white-space: nowrap; text-overflow: ellipsis; text-align: left;
+  white-space: normal; overflow-wrap: anywhere; text-align: left;
   border-radius: 4px 10px 5px 9px / 9px 4px 10px 5px;
   box-shadow: inset 0 0 0 1.2px rgba(255, 253, 244, .22), inset 0 -3px 7px rgba(63, 48, 32, .3);
   font-weight: 400; font-family: var(--pen-fam, var(--font-main));
   letter-spacing: var(--pen-sp, .02em); font-size: var(--fs-base); line-height: 1.5; }
 .board::before { content: ''; position: absolute; inset: 0; border-radius: inherit; opacity: .28;
   background: repeating-linear-gradient(92deg, rgba(63, 48, 32, .35) 0 1px, transparent 1px 7px); }
-.many-lines .board { max-width: 200px; white-space: normal; overflow-wrap: anywhere; }
 </style>

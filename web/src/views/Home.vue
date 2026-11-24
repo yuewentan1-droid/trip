@@ -745,7 +745,8 @@ onMounted(() => {
 
 /* 类目是垂在藤蔓下的记号：脚上不落地，靠一根细藤吊着 */
 .node {
-  position: absolute; z-index: 1;
+  /* 压在风里的记号上面：风从旁边过，不会把类目的 hover 抢走 */
+  position: absolute; z-index: 18;
   transform: translateX(-50%) rotate(var(--rot)) scale(calc(var(--sc) * var(--fit, 1)));
   transform-origin: 50% 0;
   display: flex; align-items: center; justify-content: center; cursor: pointer;
@@ -762,11 +763,12 @@ onMounted(() => {
   box-shadow: inset 0 0 0 1.3px rgba(139, 107, 74, .45); transition: transform .5s cubic-bezier(.3, .9, .3, 1); }
 .node:hover .n-icon, .node.on .n-icon { filter: saturate(1.18) brightness(.95); transform: translateY(-3px) rotate(-3deg); }
 .node:hover .n-img, .node.on .n-img { transform: translateY(-3px) rotate(-4deg) scale(1.07); }
-/* 手放上去才露出这块地的名：挂一块木牌，横着长，话多长牌子就多宽 */
+/* 手放上去才露出这块地的名：挂一块木牌，一行十三个字，再长就折行收尾 */
 .node-sign { top: calc(100% + 2px); opacity: 0; visibility: hidden; translate: 0 3px;
-  transition: opacity .35s, translate .35s, visibility .35s; }
+  transition: opacity .35s, translate .35s, visibility 0s .35s; }
+/* 手一搭上牌子就亮，不等淡入：机器卡顿时也不至于停在那里像没反应 */
 .node:hover .node-sign, .node.on .node-sign, .node:focus-visible .node-sign {
-  opacity: 1; visibility: visible; translate: 0 0; }
+  opacity: 1; visibility: visible; translate: 0 0; transition-delay: 0s; }
 /* 水波纹 */
 .rip { position: absolute; left: 50%; top: 50%; width: 96px; height: 58px; margin: -29px -48px;
   border: 1.2px solid rgba(126, 159, 174, .5); border-radius: 50%; pointer-events: none;
@@ -795,7 +797,8 @@ onMounted(() => {
 .notice-line i { font-style: normal; opacity: .45; }
 .home .avatar { width: 41px; height: 43px; font-size: var(--fs-head); transition: transform .35s, background .35s; }
 .avatar:hover { background: rgba(79, 107, 58, .24); transform: rotate(-4deg); }
-.h-wheat { position: absolute; left: 0; right: 0; bottom: -6px; }
+/* 跟院子里的麦子一样站在最前头，树根和风里的记号都压不住它 */
+.h-wheat { position: absolute; left: 0; right: 0; bottom: -6px; z-index: 21; }
 
 /* 开挖：原野轻轻往后退一步，让风把那把叶子带走 */
 .home.diving .meadow { transform: translateY(-12px); opacity: 0; }

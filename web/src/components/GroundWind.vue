@@ -87,8 +87,9 @@ const windy = computed(() => props.sessions
       top: 2 + (h >>> 13) % 91,
       rot: (h >>> 9) % 70 - 35,
       size: 38 + (h >>> 17) % 13,
-      dx: 30 + (h >>> 19) % 50,
-      dy: 20 + (h >>> 23) % 36,
+      // 飘得再轻一点：记号始终压在自己的按钮上，手才够得着，hover 不会追着风跑掉
+      dx: 10 + (h >>> 19) % 12,
+      dy: 8 + (h >>> 23) % 10,
       dur: ([24, 31, 39][k] + (h >>> 26) % 7) / 3,
       delay: -((h >>> 3) % 14),
       in: (.25 + (h >>> 1) % 90 / 100).toFixed(2) + 's',
@@ -187,10 +188,11 @@ const airStyle = (a, i) => ({
 /* 牌上的字比正文小三号：宽屏十七，窄屏十六，不跟着字号倍率再放大 */
 .seed-sign :deep(.board) { font-size: 17px; }
 .ground-seed .seed-sign { top: calc(100% + 2px); opacity: 0; visibility: hidden; translate: 0 3px;
-  transition: opacity .35s, translate .35s, visibility .35s; }
+  transition: opacity .35s, translate .35s, visibility 0s .35s; }
 .ground-seed:hover { z-index: 12; transform: translateX(-50%) rotate(0deg) translateY(-3px); color: var(--wood); }
+/* 手一搭上牌子就亮，不等淡入：机器卡顿时也不至于停在那里像没反应 */
 .ground-seed:hover .seed-sign, .ground-seed:focus-visible .seed-sign {
-  opacity: 1; visibility: visible; translate: 0 0; }
+  opacity: 1; visibility: visible; translate: 0 0; transition-delay: 0s; }
 
 /* 风里的那些：不拴在田里，整扇窗子都是它的路，题头上头也去得 */
 .wind-seed { position: fixed; z-index: 17; display: inline-flex; align-items: center; gap: 3px;
@@ -218,14 +220,17 @@ const airStyle = (a, i) => ({
   animation: wingBeat 1.1s ease-in-out infinite alternate; }
 .wind-seed .seed-sign { top: calc(100% + 2px);
   opacity: 0; visibility: hidden; translate: 0 3px;
-  transition: opacity .35s, translate .35s, visibility .35s; }
-.wind-seed:hover { z-index: 12; color: var(--wood); }
+  transition: opacity .35s, translate .35s, visibility 0s .35s; }
+/* 手停在风里，整阵风都歇一歇：记号不从手底下溜走，牌子才读得清；z-index 别往下压，树和麦子会盖住它 */
+.wind-seed:hover, .wind-seed:focus-visible { z-index: 30; color: var(--wood); }
+.gw:has(.wind-seed:hover) .wind-body,
+.gw:has(.wind-seed:focus-visible) .wind-body { animation-play-state: paused; }
 .wind-seed:hover .seed-sign, .wind-seed:focus-visible .seed-sign {
-  opacity: 1; visibility: visible; translate: 0 0; }
+  opacity: 1; visibility: visible; translate: 0 0; transition-delay: 0s; }
 /* 刚从封存里种回来：虚线绕一圈，牌子也亮出来 */
 .ground-seed.fresh, .wind-seed.fresh { z-index: 19; color: var(--wood); }
 .ground-seed.fresh .seed-sign, .wind-seed.fresh .seed-sign {
-  opacity: 1; visibility: visible; translate: 0 0; }
+  opacity: 1; visibility: visible; translate: 0 0; transition-delay: 0s; }
 .ground-seed.fresh::after, .wind-seed.fresh::after {
   content: ''; position: absolute; inset: -9px; border-radius: 50%;
   border: 1.3px dashed color-mix(in srgb, var(--wood) 55%, transparent);
